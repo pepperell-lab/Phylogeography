@@ -25,15 +25,16 @@ def make_dict():
     return d
 
 def split_project(d):
-    soloFileName = inFileName.split("_")[0] + "soloLib.txt"
-    multiFileName = inFileName.split("_")[0] + "multiLib.txt"
+    soloFileName = inFileName.split("_")[0] + "_soloLib.txt"
+    multiFileName = inFileName.split("_")[0] + "_multiLib.txt"
     with open(soloFileName, 'w') as soloFile, \
         open(multiFileName, 'w') as multiFile:
         for samp in d:
-            print("Processing sample {0} with {1} runs".format(samp, len(d[samp])))
+            print("Processing sample {0} with {1} runs".format(\
+            samp, len(d[samp])))
             if len(d[samp]) == 1:
                 print("Solo Library")
-                soloFile.write('%s\t%s\t%s\t%s\%s\n' %
+                soloFile.write('%s\t%s\t%s\t%s\t%s\n' %
                 (d[samp][0][0],
                 samp,
                 d[samp][0][1],
