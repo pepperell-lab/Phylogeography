@@ -22,7 +22,7 @@ def assign_lineage(infilename, outfilename):
                     lineage = int(line[1]) 
                 else:
                     try:
-                        fileExt = line[0].split(".")[1]
+                        fileExt = line[0].split(".")[-1]
                         #update to reflect your ref genome extensions
                         if fileExt == "fasta" or fileExt == "fsa_nt": 
                             outfile.write(line[0] + '\t' + str(lineage) + '\n')
