@@ -60,7 +60,8 @@ def Beijing_dict():
         for i,line in enumerate(infile):
             if i > 0:
                 line = line.strip().split('\t')
-                samp = line[0].replace("/","-")
+                presamp = line[0].replace("/","-")
+                samp = presamp.replace("_","-")
                 BeijingDict[samp] = line[24]
     return BeijingDict
 
@@ -72,11 +73,19 @@ def Comas_dict(d):
                 line = line.strip().split('\t')
                 samp = line[0]
                 accession = line[4]
-                if accession[0:4] == "SRR":
-                    d[samp] = [line[1], line[0], "lookup"]
-                    samp = accession
+                if samp not in d: 
+                    d[accession] = [line[1], line[0], "lookup"]
                 ComasDict[samp] = line[7]
     return d, ComasDict
+
+def add_canadian(d):
+    CanadaDict = {}
+    for i in ["ADHQ01", "ADIA01", "ADHZ01", "ADIB01", "ADHV01",
+        "ADHS01", "ADHX01", "ADHT01", "ADHR01", "ADHU01", "ADHW01", "ADHY01"]:
+        genome = i + ".1.fsa_nt"
+        d[genome] = [i, i, i]
+        CanadaDict[genome] = "Canada"
+    return d, CanadaDict
 
 def add_info(inputFileName, d):
     outputFileName = inputFileName.split(".")[0] + "_meta.temp"
@@ -102,9 +111,11 @@ def add_info(inputFileName, d):
                     "\t".join(d[genome]) + '\n')
                 else:
                     print("{0} not in dictionary".format(sample))
-                    outputFile.write("\t".join(line) + '\n')
+                    outputFile.write("\t".join(line) + '\t' \
+                        "lookup" + '\t' + "lookup" + '\t' \
+                        "lookup" + '\n')
 
-def add_country(inputFileName, d, GADict, BeijingDict, ComasDict):
+def add_country(inputFileName, d, GADict, BeijingDict, ComasDict, CanadaDict):
     inFileName = inputFileName.split(".")[0] + "_meta.temp"
     outFileName = inputFileName.split(".")[0] + "_meta.txt"
     with open(inFileName, 'r') as inFile, open(outFileName, 'w') as outfile:
@@ -116,26 +127,28 @@ def add_country(inputFileName, d, GADict, BeijingDict, ComasDict):
             else:
                 sample = line[0]
             project = line[2]
-            if project == "ERP001731" or project == "Comas et al., Nat Genet, 2010":
+            if sample in ComasDict:
                 outfile.write("\t".join(line) + '\t' + ComasDict[sample] 
                     + '\n')
             elif project == "ERP006989":
                 outfile.write("\t".join(line) + '\t' + BeijingDict[sample]
                     + '\n')
             elif project == "ERP008770":
-                oufile.write("\t".join(line) + '\t' + "Pakistan" + '\n')
+                outfile.write("\t".join(line) + '\t' + "Pakistan" + '\n')
             elif project == "ERP002611":
                 outfile.write("\t".join(line) + '\t' + "Portugal" + '\n')
-            elif project == "ERP00520":
+            elif project == "ERP000520":
                 outfile.write("\t".join(line) + '\t' + "Uganda" + '\n')
-            else:
-                if sample in GADict:
+            elif sample in GADict:
                     outfile.write("\t".join(line) + '\t' + GADict[sample]
                         + '\n')
-                else:
-                    outfile.write("\t".join(line) + '\t' + "lookup" + '\n')
-                    print("Need to lookup country info for samp {0}".\
-                        format(sample))
+            elif sample in CanadaDict:
+                    outfile.write("\t".join(line) + '\t' + CanadaDict[sample]
+                        + '\n')
+            else:
+                 outfile.write("\t".join(line) + '\t' + "lookup" + '\n')
+                 print("Need to lookup country info for samp {0},"\
+                        "genome {1}".format(sample, genome))
 
     
 
@@ -144,5 +157,6 @@ d = make_dict()
 d, GADict = add_GA(d)
 BeijingDict = Beijing_dict()
 d, ComasDict = Comas_dict(d)
+d, CanadaDict = add_canadian(d)
 add_info(inputFileName,d)
-add_country(inputFileName,d,GADict,BeijingDict,ComasDict)
+add_country(inputFileName,d,GADict,BeijingDict,ComasDict,CanadaDict)
