@@ -2,6 +2,7 @@
 
 import sys
 from Bio import SeqIO
+from Bio.Alphabet import IUPAC,Gapped
 import os
 import getopt
 
@@ -15,8 +16,8 @@ def rename_dict(metaFile):
     with open(metaFile, 'r') as infile:
         for line in infile:
             line = line.strip().split('\t')
-            if len(line) != 5:
-                print line
+            #if len(line) != 5:
+            #    print line
             key = line[0]
             lineage = int(line[1])
             country = line[4].replace(" ", "")
@@ -32,16 +33,14 @@ def rename_recordID(alnIN, d):
     lin1Records = []
     lin2Records = []
     lin3Records = []
-    for seq_record in SeqIO.parse(alnIN, "nexus"):
-        #strain = seq_record.id #.split(".")[0]
-        if seq_record.id in d[1]:
-            seq_record.id = seq_record.id + '_' + d[1][seq_record.id]
+    for seq_record in SeqIO.parse(alnIN, "fasta", alphabet=Gapped(IUPAC.ambiguous_dna, '-')):
+        strain = seq_record.id.split("_")[0]
+        print strain
+        if strain in d[1]:
             lin1Records.append(seq_record)
-        elif seq_record.id in d[2]:
-            seq_record.id = seq_record.id + '_' + d[2][seq_record.id]
+        elif strain in d[2]:
             lin2Records.append(seq_record)
-        elif seq_record.id in d[3]:
-            seq_record.id = seq_record.id + '_' + d[3][seq_record.id]
+        elif strain in d[3]:
             lin3Records.append(seq_record)
     SeqIO.write(lin1Records, out1, "nexus")
     SeqIO.write(lin2Records, out2, "nexus")

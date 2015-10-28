@@ -33,9 +33,14 @@ def write_file(d, linbreakdownFile):
                 (country, 
                 d[country][0],
                 d[country][1],
-                "\t".join(line[1:7])))
+                "\t".join(line[1:8])))
             else:
                 print country
+                outfile.write('%s\t%s\t%s\t%s\n' %
+                (country, 
+                "lookup",
+                "lookup",
+                "\t".join(line[1:8])))
 
 latlongFile, linbreakdownFile = sys.argv[1:]
 d = make_dict(latlongFile)

@@ -98,22 +98,22 @@ def add_info(inputFileName, d):
                 sample = genome.split("_")[0]
                 if sample in d:
                     outputFile.write("\t".join(line) + '\t' + \
-                        "\t".join(d[sample][0:2]) + '\t' + \
-                        ";".join(d[sample][3:]) + '\n')
+                        "\t".join(d[sample][0:2]) + '\n') # + \
+                       # ";".join(d[sample][3:]) + '\n')
                 else:
                     print("{0} not in dictionary".format(sample))
                     outputFile.write("\t".join(line) + '\t' \
-                        "lookup" + '\t' + "lookup" + '\t' \
-                        "lookup" + '\n')
+                        "lookup" + '\t' + "lookup" + '\n') # \
+                        #"lookup" + '\n')
             else:
                 if genome in d:
                     outputFile.write("\t".join(line) + '\t' + \
-                    "\t".join(d[genome]) + '\n')
+                    "\t".join(d[genome][0:2]) + '\n')
                 else:
                     print("{0} not in dictionary".format(sample))
                     outputFile.write("\t".join(line) + '\t' \
-                        "lookup" + '\t' + "lookup" + '\t' \
-                        "lookup" + '\n')
+                        "lookup" + '\t' + "lookup" + '\n') # \
+                        #"lookup" + '\n')
 
 def add_country(inputFileName, d, GADict, BeijingDict, ComasDict, CanadaDict):
     inFileName = inputFileName.split(".")[0] + "_meta.temp"
