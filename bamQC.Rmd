@@ -1,0 +1,218 @@
+---
+title: "BamQC"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require("ggplot2")
+
+setwd("C:/Users/Mary/PepLab/data/Phylogeography/QualityControl/")
+```
+
+This is meant to look for outlier samples in the Phylogeography dataset. I am going to start by reading in the output from a script I wrote to grab summary statistics for any number of samples from the "genome_results.txt" file output by Qualimap bamqc. My script can be found on github (https://github.com/ONeillMB1/alignmentQC/blob/master/bamQCcollate.py). Information abot the program Qualimap can be found on its website (http://qualimap.bioinfo.cipf.es).
+
+Lets start by reading in the dataset and having a look at its structure.
+
+```{r readFile}
+filename <- "all_RGA_solo_collatedBamQC.txt"
+
+solo <- read.csv(filename, header=T, sep='\t')
+
+head(solo)
+
+str(solo)
+```
+
+There are 'r length(solo$Sample)' samples in the dataset.
+
+
+##Mean Mapping Quality
+
+```{r MQ}
+
+MQ <- ggplot(solo, aes(factor("meanMQ"), meanMQ)) + 
+  geom_boxplot(fill='#A4A4A4', color="black") +
+  scale_y_continuous(limits = c(54,61)) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("") +
+  ylab("Mean Mapping Quality")
+  
+plot(MQ)
+```
+
+
+
+##Mean Coverage
+
+```{r cov}
+
+cov <- ggplot(solo, aes(factor("meanCov"), meanCov)) + 
+  geom_boxplot(fill='#A4A4A4', color="black") +
+  scale_y_log10() +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("") +
+  ylab("Mean Coverage") +
+  geom_jitter() +
+  geom_hline(aes(yintercept = 30), color = "red", linetype="dashed")
+
+  
+plot(cov)
+```
+
+The dashed red line indicates an average coverage of 30X. Lets look at the samples that have low coverage.
+
+```{r lowCov}
+
+subset(solo, meanCov < 30, select = c(Sample, meanCov, stdCov, meanMQ, perMapped, GCper))
+```
+
+Many of these samples are from the global diversity dataset :( Lets look at some other summary statistics.
+
+##Percent Mapped
+
+```{r cov}
+
+cov <- ggplot(solo, aes(x=factor(1), y=perMapped)) + 
+  geom_boxplot(fill='#A4A4A4', color="black") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("") +
+  ylab("Percent Mapped") +
+  geom_jitter()
+
+  
+plot(cov)
+```
+
+Yikes.... some of these have a very low percent mapped, likely indicating contamination. 
+
+##Duplication Rate
+
+```{r dup}
+
+dup <- ggplot(solo, aes(x=factor(1), y=dupRate)) + 
+  geom_boxplot(fill='#A4A4A4', color="black") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("") +
+  ylab("Duplication Rate") +
+  geom_jitter()
+
+  
+plot(dup)
+```
+
+I honestly don't know how to interpret the duplication rate. We also mark duplicates in our pipeline, so I am less concerned about this statistic.
+
+##Median Insert Size
+
+```{r ins}
+
+ins <- ggplot(solo, aes(x=factor(1), y=medIns)) + 
+  geom_boxplot(fill='#A4A4A4', color="black") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("") +
+  ylab("Median Insert Size") +
+  geom_jitter()
+
+  
+plot(ins)
+```
+
+The samples with zero are single-ended and thus do not have any insert size. It appears the majority of the samples were 250bp paired-end libraries.
+
+
+##GC Percentage
+
+```{r gc}
+
+gc <- ggplot(solo, aes(x=factor(1), y=GCper)) + 
+  geom_boxplot(fill='#A4A4A4', color="black") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("") +
+  ylab("GC Percentage") +
+  geom_jitter()
+
+  
+plot(gc)
+```
+
+Hmm, some of these seem too low or too high. Lets look at the relationship between percent mapped and GC content.
+
+```{r corr}
+
+corr <- ggplot(solo, aes(x=perMapped, y=GCper)) + 
+  geom_point(fill='#A4A4A4', color="black") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("perMapped") +
+  ylab("GC Percentage")
+  
+
+  
+plot(corr)
+```
+
+It looks like there may be a correlation at lower percent mapped, but those above ~85% mapped seem to have a wide spread. 
+
+##Nucleotide Content
+
+```{r nuc}
+
+require("reshape")
+nuc <- solo[,c('Sample','A','C','G','T', 'N')]
+nuc.m <- melt(nuc, id = 'Sample')
+
+nucPlot <- ggplot(nuc.m, aes(x=variable, y=value)) + 
+  geom_boxplot(fill='#A4A4A4', color="black") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("") +
+  ylab("Percent A") 
+
+  
+plot(nucPlot)
+```
+
+#The G-C content should be the about the same for each sample, so maybe I can identify some outliers by plotting the G vs C content and T vs A.
+
+```{r nuc}
+
+nuc2 <- ggplot(solo, aes(x=C, y=G)) + 
+  geom_point(fill='#A4A4A4', color="black") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("") +
+  ylab("") 
+
+  
+plot(nuc2)
+
+nuc3 <- ggplot(solo, aes(x=A, y=T)) + 
+  geom_point(fill='#A4A4A4', color="black") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("") +
+  ylab("") 
+
+  
+plot(nuc3)
+
+
+```
