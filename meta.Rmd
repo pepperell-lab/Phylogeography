@@ -1,0 +1,184 @@
+---
+title: "Phylogeography - Data Summary"
+author: "Mary O'Neill"
+date: "February 15, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require("ggplot2")
+require("plyr")
+```
+
+
+```{r readDat, echo=FALSE, message=FALSE, warnings=FALSE}
+#location to meta file
+metaFile <- "C:/Users/Mary/PepLab/data/Phylogeography/QualityControl/160212_meta2.txt"
+
+#read tab deliminated file
+meta <- read.table(metaFile, header=F, sep='\t', na.strings="NA")
+
+#assign the headers
+names(meta) <- c('Sample','Runs', 'Country', 'SubRegion', 'Iso2', 'WHORegion', 'Lineage', 'Latitude', 'Longitude', 'PercentMissingSites')
+
+#force lineage into a factor
+meta$Lineage <- as.factor(meta$Lineage)
+
+```
+
+###BWA Algorithms
+Following my discovery the other week that differing algorithms of BWA introduced a bias in the data, I remapped all read data originally mapped with the old algorithm with the newer and faster 'MEM' algorithm. (Our pipeline has historically followed BWA's recommendations to use the old algorithm for reads less than 70bp and the MEM algorithm on longer reads. However, since Tatum and I have converted the pipeline to Condor we are only using the MEM algorithm). 
+
+###Reference-guided assembly of TB-ARC samples
+I also downloaded read data for all of the selected samples from the TB-ARC datasets and made reference-guided assemblies (RGA) for each sample. I think this is less likely to introduce a bias than the 'de novo to pseudo-RGA' pipeline. 
+
+###Pilon for Variant Calls
+For many of the TB-ARC samples there were multiple sequencing runs and often different strategies (eg. paired-end and mate-pair). Our pipeline was not equipped to handle greater than one sequencing run per sample in terms of variant calling. (I handled this by 'merging' VCFs for the Beijing study samples for which there were more than one sequencing run associated with the sample previously, but incorporating the info from multiple runs at the level of the variant caller is more desirable.) Moreover, as far as I know the Unified Genome is not designed to handle mate-pair data. Pilon is designed for bacterial genomics and can use mate-pair info (in addition to single and paired-end). I tested and validated Pilon and found the results to be very comparable to GATK's Unified Genotyper. I've documented this on our lab Slack page under the 'pipeline' chanel I generated: (https://pepperelllab.slack.com/messages/pipeline/details/). Variants for all samples passing QC were called with Pilon. 
+
+###De novo genomes
+There are still some de novo isolates in the alignment (you can tell by the Sample names - ERS/SRS are RGA and others are de novo.) These genomes are draft assemblies made by other groups and do not have FASTQ data available. I aligned them (along with H37Rv) using Mugsy, and then removed regions not present in H37Rv and merged them with the RGA samples. I think we need to keep a close eye on the behavior of these samples as almost all the 'weird' branches have turned out to be de novo assemblies.
+
+#Data Summary
+There are `r length(meta$Sample)` M.tb isolates from `r length(unique(meta$Iso2))` Countries that passed quality filters (at least 80% of H37Rv genome covered by 20X, and >75% of reads mapped). 
+
+```{r lineage, echo=FALSE, message=FALSE, warnings=FALSE}
+
+lin <- aggregate(Sample ~ Lineage, meta, length)
+
+linP <- ggplot(meta, aes(x=factor(1), fill=Lineage)) + 
+  geom_bar() +
+  scale_fill_manual(values = c("pink", "blue", "darkmagenta", "red", "darkred","darkgreen", "yellow2")) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.y = element_blank(),
+        axis.text.x = element_blank()) +
+  xlab("") +
+  ylab("") +
+  coord_polar(theta="y")
+  
+  
+plot(linP)
+```
+
+The numbers if you prefer:
+```{r, echo=FALSE, message=FALSE, warnings=FALSE}
+summary(meta$Lineage)
+```
+
+And if you would like to get an idea of where in the world these samples are, we can look at the lineage breakdown by WHO region:
+```{r, echo=FALSE, message=FALSE, warnings=FALSE}
+aggregate(Sample ~ Lineage + WHORegion, meta, length)
+```
+
+
+While all these samples passed the quality thresholds mentioned above (imposed on individual sequencing runs), a few are missing data for large portions of the genome.(Note that 11-12% of sites have been masked in all genomes due to poor resolution of the regions with short read technologies.)
+
+
+```{r missing, echo=FALSE, message=FALSE, warnings=FALSE}
+
+m <- ggplot(meta, aes(PercentMissingSites)) + 
+  geom_histogram() +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("Missing Sites in Alignment (%)") +
+  ylab("Number of Isolates") 
+ 
+plot(m) 
+```
+
+Isolates with less greater than 20% of sites missing in the alignment:
+
+```{r missing2, echo=FALSE, message=FALSE, warnings=FALSE}
+
+missing <- subset(meta, PercentMissingSites > 20)
+
+missing[order(missing$PercentMissingSites),]
+
+```
+
+Do we want to include samples with lots of non-confident sites? I recommend we at least remove the two samples with >25% of sites missing.
+
+
+Let's look at these samples on a map! Note that precise latitude and longitude coordinates were used for samples that I could find sub-regional information for (i.e. city, province, etc.). If this level of info was not present, the average latitude and longitude coordinates of the County of origin were used.
+
+```{r map, echo=FALSE, message=FALSE, warnings=FALSE}
+
+library(maps)
+library(mapdata)
+library(plotrix)
+library(mapplots)
+library(reshape2)
+
+meta$loc <- paste(meta$Latitude, meta$Longitude, sep="_")
+mapDat.m <- aggregate(Sample ~ Lineage + loc, meta, length)
+mapDat <- dcast(mapDat.m, loc~Lineage)
+
+#Use aggregate to summarize the number of samples per location cast the data into wide format
+mapDat.m <- aggregate(Sample ~ Lineage + Latitude + Longitude, meta, length)
+mapDat2 <- dcast(mapDat.m, Latitude + Longitude ~ Lineage)
+names(mapDat2) <- c("Latitude","Longitude","Lin1","Lin2","Lin3","Lin4","Lin5","Lin6","Lin7")
+mapDat2[is.na(mapDat2)] <- 0
+
+
+mapDat2$total = rowSums(mapDat2[,c("Lin1","Lin2","Lin3","Lin4","Lin5","Lin6","Lin7")])
+
+mapDat2$radius <- with(mapDat2, ifelse(total > 25, 6, 
+                               ifelse(total > 6, 5, 
+                               ifelse(total > 2, 4, 
+                               ifelse(total > 1, 3, 2)))))
+
+
+
+map("world", fill=FALSE)
+map.axes()
+
+for(i in 1:nrow(mapDat2)) {
+  row <- mapDat2[i,]
+  add.pie(x = row$Longitude, y = row$Latitude, 
+          z=c(row$Lin1,row$Lin2,row$Lin3,row$Lin4,row$Lin5,row$Lin6,row$Lin7), 
+          labels = NA, radius=row$radius, 
+          col=c("pink", "blue", "darkmagenta", "red", "darkred", "darkgreen", "yellow3"))
+}
+
+```
+
+
+Here is a summary of the number of samples from each location after throwing out samples with poor sequencing data (earlier QC report I sent). For many of these countries (China, Russia, Malawi, any of the TB-ARC) we have other samples that we can draw from again - what are your thoughts on this? It shouldn't take as long since I have a pipeline worked out now. Also note that I have separtate coordinates for China and Taiwan - WHO treats Taiwan as part of China in terms of incidence rates.
+
+```{r byCountry, echo=FALSE, message=FALSE, warnings=FALSE}
+
+
+cL.m <- aggregate(Sample ~ Lineage + Iso2 + Country, meta, length)
+cL <- dcast(cL.m, Iso2 + Country ~ Lineage)
+cL[is.na(cL)] <- 0
+
+
+cL$total = rowSums(cL[,c("1","2","3","4","5","6","7")])
+
+cL[order(cL$total, decreasing=TRUE),]
+
+```
+
+
+
+And here is the tree produced by FastTree v2.1.8 from the SNP alignment. I need to play some more to make it look pretty in R.
+
+```{r tree, echo=FALSE, message=FALSE, warnings=FALSE}
+
+library(ggplot2)
+library(ape)
+library(phangorn)
+library(ggtree)
+
+tree <- read.tree("C:/Users/Mary/PepLab/data/Phylogeography/trees/160212_snps.tree")
+midpoint_rooted <- midpoint(tree)
+reordered_tree <- reorder(midpoint_rooted)
+p <- ggtree(midpoint_rooted)  
+
+p
+```
+
