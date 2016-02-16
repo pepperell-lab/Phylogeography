@@ -19,15 +19,16 @@ def assign_lineage(infilename, outfilename):
                 if line[0] == "Lineage":
                     #All genomes listed below a 'lineage' will be assigned
                     #that lineage.
-                    lineage = int(line[1]) 
+                    lineage = int(line[1])
+                elif line[0] == "Selected":
+                    continue
                 else:
                     try:
-                        fileExt = line[0].split(".")[-1]
-                        #update to reflect your ref genome extensions
-                        if fileExt == "fasta" or fileExt == "fsa_nt": 
-                            outfile.write(line[0] + '\t' + str(lineage) + '\n')
-                    except IndexError:
-                        continue
+                        float(line[0])
+                    except ValueError:
+                        outfile.write(line[0] + '\t' + str(lineage) + '\n')
+                    #except IndexError:
+                    #    continue
         
             
 # check for correct arguments
