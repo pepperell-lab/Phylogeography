@@ -1,0 +1,348 @@
+---
+title: "<Your Project Title Here> QC Report"
+author: "BamQCReportGenerator.Rmd written by: Mary B. O'Neill, Lab Member Generating Report: <Your Name> "
+date: "<date>"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require("ggplot2")
+require("reshape2")
+
+```
+
+This is meant to look for outlier samples run through the Pepperell Lab RGA Pipeline. Start by reading in the output from my bamQCcollate.py script (https://github.com/ONeillMB1/alignmentQC/). Note that this script pulls information for files you specifify from summary files produced by the program Qualimap (http://qualimap.bioinfo.cipf.es). 
+
+```{r readFile, echo=FALSE}
+#specify paths to input files
+filepath <- "C:/Users/Mary/PepLab/data/Phylogeography/QualityControl/all_RGA_multi_collatedBamQC.txt"
+
+#read in the files
+dat <- read.csv(filepath, header=T, sep='\t', na.strings="NA")
+
+#Force the sample to a character
+dat$Sample <- as.character(dat$Sample)
+
+#There are spaces in front of some of the names?
+dat$Sample <- gsub(" ", "",dat$Sample)
+
+#Make a column 'Type'
+dat$Type <- "RGA"
+
+str(dat)
+```
+
+There are `r length(dat$Sample)` samples in the dataset.
+
+
+##Mean Mapping Quality
+
+```{r MQ, echo=FALSE}
+
+MQ <- ggplot(dat, aes(Type, meanMQ)) + 
+  geom_boxplot(fill='#A4A4A4', color="black") +
+  scale_y_continuous(limits = c(54,61)) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("") +
+  ylab("Mean Mapping Quality") 
+  
+plot(MQ)
+
+
+```
+
+The mean mapping quality of the dataset is `r mean(dat$meanMQ)`, with a range from `r min(dat$meanMQ)` to `r max(dat$meanMQ)`. Throughout this document, outliers will refer to any samples falling above or below 1.5 times the interquartile range of the 1st or 3rd quartile of the data for the given statistic. Below is the info pertaining to the outliers (both high and low):
+
+
+```{r lowMQ, echo=FALSE}
+
+LB <- unname(quantile(dat$meanMQ, probs=0.25)) - 1.5*unname(IQR(dat$meanMQ))
+UB <- unname(quantile(dat$meanMQ, probs=0.75)) + 1.5*unname(IQR(dat$meanMQ))
+
+oMQ <- dat[dat$meanMQ < LB | dat$meanMQ > UB,]   
+
+oMQ[order(oMQ$meanMQ), c(1,4,2:3,5:9,21)]
+```
+
+
+
+##Coverage
+
+#Mean Coverage
+
+```{r cov, echo=FALSE}
+
+cov <- ggplot(dat, aes(Type, meanCov)) + 
+  geom_boxplot(fill='#A4A4A4', color="black") +
+  scale_y_log10() +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("") +
+  ylab("Mean Coverage") +
+  geom_hline(aes(yintercept = 30), color = "red", linetype="dashed") +
+  geom_hline(aes(yintercept = 20), color = "blue", linetype="dashed")
+
+  
+plot(cov)
+```
+
+The dashed red line indicates an average coverage of 30X, the blue and average coverage of 20X. Note the log scale. Perhaps more important is the percentage of the reference genome covered by a given coverage.
+
+
+#Percent Genome Covered at >= X
+
+```{r covPlot, echo=FALSE}
+
+cov <- dat[,c('Sample', "Type", 'meanCov', 'stdCov', 'perGen10X', 'perGen15X', 'perGen20X', 'perGen30X')]
+cov.m <- melt(cov, id = c('Sample', 'meanCov', 'stdCov', "Type"))
+levels(cov.m$variable) <- c('10X', '15X', '20X', '30X')
+
+covPlot <- ggplot(cov.m, aes(x=variable, y=value)) + 
+  geom_boxplot() +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("Minimum Coverage") +
+  ylab("Percent Genome Covered") 
+  
+
+  
+plot(covPlot)
+```
+
+What is a good threshold?
+
+#Relationship Between Mean Coverage and the Percent Genome Covered By X
+
+```{r meanCov_perCov, echo=FALSE}
+
+MCvPC <- ggplot(cov.m, aes(x=meanCov, y=value)) + 
+  facet_wrap(~variable) +
+  geom_point() +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position="none") +
+  xlab("Mean Coverage") +
+  scale_x_log10() +
+  ylab("Fraction Genome Covered") 
+
+  
+plot(MCvPC)
+```
+
+Again note that the x-axis is on a log scale.
+
+Below is the info pertaining to the outliers for the 10X threshold:
+
+```{r lowPC, echo=FALSE}
+
+LB <- unname(quantile(dat$perGen10X, probs=0.25)) - 1.5*unname(IQR(dat$perGen10X))
+
+oPC <- dat[dat$perGen10X < LB,]   
+
+oPC[order(oPC$perGen10X), c(1,4,2:3,5:9,21)]
+```
+
+
+##Percent of Reads Mapped
+
+```{r pm, echo=FALSE}
+
+pm <- ggplot(dat, aes(x=Type, y=perMapped)) + 
+  geom_boxplot(fill='#A4A4A4', color="black") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("") +
+  ylab("Percent Mapped") 
+
+  
+plot(pm)
+```
+
+This statistic is a good proxy for possible contamination and/or high divergence from the reference.
+
+Below is the info pertaining to outliers:
+
+```{r lowPM, echo=FALSE, echo=FALSE}
+
+LB <- unname(quantile(dat$perMapped, probs=0.25)) - 1.5*unname(IQR(dat$perMapped))
+
+oPM <- dat[dat$perMapped < LB,]   
+
+oPM[order(oPM$perMapped), c(1,4,2:3,5:9,21)]
+```
+
+
+Lets look at the relationship between percent mapped and mean coverage.
+
+#Relationship Between Percentage of Reads Mapped and the Mean Coverage
+```{r PMvCov, echo=FALSE}
+
+PMvCov <- ggplot(dat, aes(x=perMapped, y=meanCov)) + 
+  geom_point(fill='#A4A4A4', color="black") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  scale_y_log10() +
+  geom_hline(aes(yintercept = 30), color = "red", linetype="dashed") +
+  geom_hline(aes(yintercept = 20), color = "blue", linetype="dashed") +
+  xlab("Percent Mapped") +
+  ylab("Mean Coverage")
+  
+
+  
+plot(PMvCov)
+```
+
+The red dotted line corresponds to a mean coverage of 30X and the blue a mean coverage of 20X.
+
+##Duplication Rate
+
+```{r dup, echo=FALSE}
+
+dup <- ggplot(dat, aes(x=Type, y=dupRate)) + 
+  geom_boxplot(fill='#A4A4A4', color="black") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("") +
+  ylab("Duplication Rate") 
+
+  
+plot(dup)
+```
+
+How should we interpret the duplication rate? We mark duplicates in our pipeline, so I am less concerned about this statistic. 
+
+##GC Percentage
+
+```{r gc, echo=FALSE}
+
+gc <- ggplot(dat, aes(x=Type, y=GCper)) + 
+  geom_boxplot() +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("") +
+  ylab("GC Percentage") 
+
+  
+plot(gc)
+```
+
+How much spread is acceptable in terms of GC content? Does it vary by lineage/clade? You will need to incorporate more data to look at this kind of thing.
+
+#Percent Reads Mapped vs GC Percentage
+
+```{r corr, echo=FALSE}
+
+corr <- ggplot(dat, aes(x=perMapped, y=GCper, group=Type)) + 
+  geom_point() +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position="none") +
+  xlab("Percent Reads Mapped") +
+  ylab("GC Percentage")
+  
+plot(corr)
+```
+
+##Nucleotide Content
+
+```{r nuc, echo=FALSE}
+
+require("reshape")
+nuc <- dat[,c('Sample','Type', 'A','C','G','T')]
+nuc.m <- melt(nuc, id = c('Sample', 'Type'))
+
+nucPlot <- ggplot(nuc.m, aes(x=variable, y=value)) + 
+  geom_boxplot() +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("Nucleotide") +
+  ylab("Percentage") 
+
+plot(nucPlot)
+```
+
+The G-C content should be the about the same for each sample, so maybe I can identify some outliers by plotting the G vs C content and T vs A.
+
+```{r CvG, echo=FALSE}
+
+nuc2 <- ggplot(dat, aes(x=C, y=G)) + 
+  geom_point(fill='#A4A4A4', color="black") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("Percentage C") +
+  ylab("Percentage G") 
+
+  
+plot(nuc2)
+
+```
+
+
+Lets move on and do the same for A vs T. 
+```{r AvT, echo=FALSE}
+
+nuc3 <- ggplot(dat, aes(x=A, y=T)) + 
+  geom_point(fill='#A4A4A4', color="black") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("Percentage A") +
+  ylab("Percentage T") 
+
+  
+plot(nuc3)
+
+```
+
+##Mismatches
+
+```{r misMat, echo=FALSE}
+
+misMat <- ggplot(dat, aes(x=Type, y=misMat)) + 
+  geom_boxplot(fill='#A4A4A4', color="black") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("") +
+  ylab("Mismatches") 
+
+  
+plot(misMat)
+```
+
+
+#Relationship Between Mismatches and Mean Coverage
+
+```{r MisVsCov, echo=FALSE}
+
+MisVsCov <- ggplot(dat, aes(x=meanCov, y=misMat, group=Type)) + 
+  geom_point() +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("Mean Coverage") +
+  ylab("Mismatches")
+  
+
+  
+plot(MisVsCov)
+
+```
+
+You can imagine that if the error rate is constant, as you increase coverage you are bound to have more incorrecltly called bases, but our power to detect such even will increase. Perhaps this should be normalized by the total number of bases (mapped). 
+
+#Have fun exploring your data!
