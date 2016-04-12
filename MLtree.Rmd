@@ -1,0 +1,166 @@
+---
+title: "MLtree"
+author: "Mary O'Neill"
+date: "April 12, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(ggplot2)
+require(ape)
+source("https://bioconductor.org/biocLite.R")
+biocLite("ggtree")
+require("ggtree")
+require(phytools)
+require(phangorn)
+setwd("C:/Users/Mary/PepLab/data/Phylogeography/trees/final_dataset/")
+```
+
+## ML Tree
+
+The tree was made with RAxML version 8.2.3 using the commands below:
+
+BestTree (full alignment):
+/opt/PepPrograms/standard-RAxML/raxmlHPC-PTHREADS-SSE3 -T 16 -m GTRGAMMA -p 123 -# 20 -s global_50per.fasta -n global_bestTree
+
+Rapid Bootstrap (snp alignment):
+/opt/PepPrograms/standard-RAxML/raxmlHPC-PTHREADS-SSE3-T 10 -m GTRGAMMA -p 123 -x 123 -# autoMR -s global_snps_50per.fa -n snp_rapidbootstrap
+
+Combine:
+/opt/PepPrograms/standard-RAxML/raxmlHPC-PTHREADS-SSE3 -T 2 -m GTRGAMMA -p 123 -f b -t RAxML_bestTree.global_bestTree -z RAxML_bootstrap.snp_rapidbootstrap -n 160412_RAxML_bestTree_rapidbootsnp.tree
+
+
+A couple warnings were raised by RAxML:
+
+"IMPORTANT WARNING: Sequences ERS1028703_ET_AFR and ERS217640_ET_AFR are exactly identical
+IMPORTANT WARNING: Sequences ERS1028689_ET_AFR and ERS217636_ET_AFR are exactly identical
+IMPORTANT WARNING: Sequences ERS217642_ET_AFR and ERS1028710_ET_AFR are exactly identical
+IMPORTANT WARNING: Sequences ERS1028704_ET_AFR and ERS217641_ET_AFR are exactly identical
+IMPORTANT WARNING: Sequences ERS217639_ET_AFR and ERS1028701_ET_AFR are exactly identical
+IMPORTANT WARNING: Sequences ERS217638_ET_AFR and ERS1028695_ET_AFR are exactly identical
+IMPORTANT WARNING: Sequences ERS1028692_ET_AFR and ERS217637_ET_AFR are exactly identical
+IMPORTANT WARNING: Sequences ERS217643_ET_AFR and ERS1028715_ET_AFR are exactly identical
+IMPORTANT WARNING: Sequences ERS1028678_ET_AFR and ERS217634_ET_AFR are exactly identical
+IMPORTANT WARNING: Sequences ERS1028684_ET_AFR and ERS217635_ET_AFR are exactly identical
+IMPORTANT WARNING
+Found 10 sequences that are exactly identical to other sequences in the alignment.
+Normally they should be excluded from the analysis.""
+
+"WARNING the alpha parameter with a value of 11.831625 estimated by RAxML for partition number 0 with the name 'No Name Provided' is larger than 10.000000. You should do a model test and confirm that you actually need to incorporate a model of rate heterogeneity! You can run inferences with a plain substitution model (without rate heterogeneity) by specifyng the CAT model and the '-V' option!"
+
+
+##ML Tree
+```{r loadData}
+tre <- read.tree("RAxML_bipartitions.160412_RAxML_bestTree_rapidbootsnp.tree")
+raxml <- read.raxml("RAxML_bipartitionsBranchLabels.160412_RAxML_bestTree_rapidbootsnp.tree")
+
+ggtree(raxml, ladderize = FALSE, layout="unrooted") 
+
+ggtree(raxml, ladderize = FALSE) + geom_treescale(offset=-10) + geom_tippoint()
+
+
+```
+
+##Density Tree
+
+This code takes a very long time.
+```{r densiTree}
+
+btrees <- read.tree("RAxML_bootstrap.snp_rapidbootstrap")
+best_tree <- read.tree("RAxML_bestTree.global_bestTree")
+
+p <- ggtree(btrees, layout="rectangular", color="lightblue", alpha=.3)
+df <- fortify(best_tree, branch.length = 'none')
+p+geom_tree(data=df, color='firebrick')
+```
+
+##GroupOTU
+
+```{r group}
+require(stringr)
+
+
+
+isoInfo <- split(tre$tip.label, gsub("\\w+_", "", tre$tip.label))
+tre2 <- groupOTU(tre, isoInfo)
+ggtree(tre2, aes(color=group), ladderize=FALSE)
+
+
+#midpoint
+mpt <- midpoint(tre)
+isoInfo2 <- split(mpt$tip.label, gsub("\\w+_", "", mpt$tip.label))
+mpt <- groupOTU(mpt, isoInfo)
+ggtree(mpt, ladderize=FALSE) + geom_treescale(offset=-10) + geom_tippoint(aes(color=group)) + theme(legend.position="right") + geom_text2(aes(subset=!isTip, label=node))
+ggtree(mpt, layout="circular") + geom_tippoint(aes(color=group)) + theme(legend.position="right") 
+
+p <- ggtree(mpt, ladderize=FALSE) + geom_treescale(offset=-10) + geom_tippoint(aes(color=group)) 
+p %>% collapse(node=964) %>% collapse(node=569) %>% collapse(node=1081) %>% collapse(node=991) %>% collapse(node=822) %>% collapse(node=754) %>% collapse(node=574)
+
+
+
+p1 <- ggtree(mpt, ladderize=FALSE) + 
+  geom_treescale(offset=-10) + 
+  geom_tippoint(aes(color=group)) + 
+  geom_cladelabel(node=569, label="L6") +
+  geom_hilight(node=569, fill="darkgreen", alpha=.2) +
+  geom_cladelabel(node=1081, label="L5") +
+  geom_hilight(node=1081, fill="darkred", alpha=.2) +
+  geom_cladelabel(node=991, label="L1") +
+  geom_hilight(node=991, fill="pink", alpha=.2) +
+  geom_cladelabel(node=964, label="L7") +
+  geom_hilight(node=964, fill="yellow", alpha=.2) +
+  geom_cladelabel(node=822, label="L4") +
+  geom_hilight(node=822, fill="red", alpha=.2) +
+  geom_cladelabel(node=754, label="L3") +
+  geom_hilight(node=754, fill="purple", alpha=.2) +
+  geom_cladelabel(node=574, label="L2") +
+  geom_hilight(node=574, fill="blue", alpha=.2)
+
+p2 <- viewClade(p, node=964) + geom_tiplab()
+
+#Tree not showing up... perhaps it is too big?
+subview(p2, p1+theme_transparent(),x=-10,y=1)
+
+
+p1 + geom_text2(aes(label=node))
+
+class(mpt)
+
+
+boots <- as.numeric(mpt$node.label)
+
+p1 + geom_text2(aes(label=label, subset=!isTip))
+
+
+
+#Only showing labels with bootstrap less than 100
+d = p1$data
+d=d[!d$isTip,]
+d$label = as.numeric(d$label)
+d=d[d$label<100 & !is.na(d$label),]
+p1 + geom_text2(data=d, aes(label=label), hjust=-.2)
+
+
+c1 <- ggtree(mpt, ladderize=FALSE, layout="circular") + 
+  geom_treescale(offset=-10) + 
+  geom_tippoint(aes(color=group)) + 
+  geom_cladelabel(node=569, label="L6") +
+  geom_hilight(node=569, fill="darkgreen", alpha=.2) +
+  geom_cladelabel(node=1081, label="L5") +
+  geom_hilight(node=1081, fill="darkred", alpha=.2) +
+  geom_cladelabel(node=991, label="L1") +
+  geom_hilight(node=991, fill="pink", alpha=.2) +
+  geom_cladelabel(node=964, label="L7") +
+  geom_hilight(node=964, fill="yellow", alpha=.2) +
+  geom_cladelabel(node=822, label="L4") +
+  geom_hilight(node=822, fill="red", alpha=.2) +
+  geom_cladelabel(node=754, label="L3") +
+  geom_hilight(node=754, fill="purple", alpha=.2) +
+  geom_cladelabel(node=574, label="L2") +
+  geom_hilight(node=574, fill="blue", alpha=.2)
+c1 
+
+c1 + geom_text2(data=d, aes(label=label), hjust=-.2)
+```
+
