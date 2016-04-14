@@ -36,11 +36,10 @@ require(ape)
 Mtb <- read.FASTA("160223_snps_50per_recoded.fasta") #read the fasta
 genetic.dists = dist.dna(Mtb) #pairwise distance matrix computation
 gm <- as.matrix(genetic.dists)
-gm2 <- gm
-rownames(gm2) <- sapply(strsplit(rownames(gm), "_"), "[[", 1)
-colnames(gm2) <- sapply(strsplit(colnames(gm), "_"), "[[", 1)
+rownames(gm) <- sapply(strsplit(rownames(gm), "_"), "[[", 1)
+colnames(gm) <- sapply(strsplit(colnames(gm), "_"), "[[", 1)
   
-
+gm <- gm[rownames(gm) %in% rownames(dm), colnames(gm) %in% colnames(dm)]
 
 ```
 
@@ -97,7 +96,7 @@ sgm.2 <- gm.2[order(rownames(gm.2)), order(colnames(gm.2))]
 
 mantel.test(sdm.2, sgm.2)
 mantel(sgm.2,sdm.2)
-mantel.rtest(as.dist(sdm.3),as.dist(sgm.3))
+mantel.rtest(as.dist(sdm.2),as.dist(sgm.2))
 
 #subset matrices by lineage 3
 lin3 = as.vector(subset(meta, lin == 3, name))
@@ -177,6 +176,20 @@ mantel.test(sdm.7, sgm.7)
 mantel(sgm.7,sdm.7)
 mantel.rtest(as.dist(sdm.7),as.dist(sgm.7))
 
+
+
+
+
+#######entire dataset
+
+sdm <- dm[order(rownames(dm)), order(colnames(dm))]
+sgm <- gm[order(rownames(gm)), order(colnames(gm))]
+
+
+mantel.test(sdm, sgm)
+mantel(sgm,sdm)
+mantel.rtest(as.dist(sdm),as.dist(sgm))
+
 ```
 
 
@@ -187,6 +200,27 @@ For the source-sink model, I need a way to calculate nucleotide diversity. Previ
 require(pegas)
 require(adegenet)
 
+
+```
+
+
+##Nuc Div
+
+```{r}
+
+labels(Mtb)
+pops <- as.factor(sapply(strsplit(labels(Mtb), "_"), "[[", 4))
+
+nuc.div(Mtb, variance=FALSE, pairwise.deletion=FALSE)
+
+
+res <- amova(genetic.dists ~ pops)
+
+
+mtb <- DNAbin2genind(Mtb, pop=pops, exp.char=c("a","t","c","g"))
+
+
+poppr.mtb <- poppr(mtb)
 
 ```
 
