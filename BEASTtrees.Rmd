@@ -1,0 +1,87 @@
+---
+title: "BEASTtrees"
+author: "Mary O'Neill"
+date: "April 13, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(ggplot2)
+require(ape)
+#source("https://bioconductor.org/biocLite.R")
+#biocLite("ggtree")
+require("ggtree")
+require(phytools)
+require(phangorn)
+setwd("C:/Users/Mary/PepLab/data/Phylogeography/160222_discrete_lineageSpecific/final/")
+```
+
+## Lineage-specific discrete analyses
+
+
+```{r lin1}
+beast <- read.beast("lin1_snps_MCC.tree")
+
+get.fields(beast)
+
+bt <- ggtree(beast, ladderize=FALSE) 
+
+
+
+beast_data <- fortify(beast)
+head(beast_data)
+
+require(stringr)
+require(splitstackshape)
+
+df <- beast_data
+df <- df[,-c(2:24, 27)]
+df2 <- df
+df2$location.set.prob = gsub("\\{|\\}", "", df$location.set.prob)
+df2$location.set = gsub("\\{|\\}", "", df$location.set)
+
+df2.long = cSplit(df2, splitCols = c("location.set", "location.set.prob"), sep = c(",", ","), direction = "long")
+df2.wide = as.data.frame(dcast(df2.long, node ~ location.set))
+df3 <- df2.wide[,-25]
+df3[is.na(df3)] <- 0
+
+pies <- nodepie(df3, cols=2:24, alpha=.6)
+inset(bt, pies)
+
+```
+
+```{r testData}
+
+set.seed(2015-12-31)
+tr <- rtree(15)
+p <- ggtree(tr)
+
+a <- runif(14, 0, 0.33)
+b <- runif(14, 0, 0.33)
+c <- runif(14, 0, 0.33)
+d <- 1 - a - b - c
+dat <- data.frame(a=a, b=b, c=c, d=d)
+## input data should have a column of `node` that store the node number
+dat$node <- 15+1:14
+
+## cols parameter indicate which columns store stats (a, b, c and d in this example)
+bars <- nodebar(dat, cols=1:4)
+
+inset(p, bars)
+
+inset(p, bars, width=.03, height=.06)
+
+bars2 <- nodebar(dat, cols=1:4, position='dodge',
+                 color=c(a='blue', b='red', c='green', d='cyan'))
+p2 <- inset(p, bars2, x='branch', width=.03, vjust=-.3)
+print(p2)
+
+pies <- nodepie(dat, cols=1:4, alpha=.6)
+inset(p, pies)
+
+
+
+
+```
+
