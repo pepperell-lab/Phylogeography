@@ -1,7 +1,7 @@
 ---
 title: "Phylogeography - Data Summary"
 author: "Mary O'Neill"
-date: "February 15, 2016"
+date: "February 23, 2016"
 output: html_document
 ---
 
@@ -14,17 +14,18 @@ require("plyr")
 
 ```{r readDat, echo=FALSE, message=FALSE, warnings=FALSE}
 #location to meta file
-metaFile <- "C:/Users/Mary/PepLab/data/Phylogeography/QualityControl/160212_meta2.txt"
+metaFile <- "C:/Users/Mary/PepLab/data/Phylogeography/160223_finalizing/160203_passing.meta"
 
 #read tab deliminated file
-meta <- read.table(metaFile, header=F, sep='\t', na.strings="NA")
+meta.pre <- read.table(metaFile, header=F, sep='\t', na.strings="NA")
 
 #assign the headers
-names(meta) <- c('Sample','Runs', 'Country', 'SubRegion', 'Iso2', 'WHORegion', 'Lineage', 'Latitude', 'Longitude', 'PercentMissingSites')
+names(meta.pre) <- c('Sample','Runs', 'Country', 'SubRegion', 'Iso2', 'WHORegion', 'Lineage', 'Latitude', 'Longitude', 'PercentMissingSites')
 
 #force lineage into a factor
-meta$Lineage <- as.factor(meta$Lineage)
+meta.pre$Lineage <- as.factor(meta.pre$Lineage)
 
+meta <- meta.pre[-c(which(meta.pre$Sample=="CCJS01"), which(meta.pre$Sample=="ERS217661"), which(meta.pre$Sample=="ERS218324"), which(meta.pre$Sample=="CCBK01"), which(meta.pre$Sample=="CCSJ01")),]
 ```
 
 ###BWA Algorithms
@@ -40,7 +41,7 @@ For many of the TB-ARC samples there were multiple sequencing runs and often dif
 There are still some de novo isolates in the alignment (you can tell by the Sample names - ERS/SRS are RGA and others are de novo.) These genomes are draft assemblies made by other groups and do not have FASTQ data available. I aligned them (along with H37Rv) using Mugsy, and then removed regions not present in H37Rv and merged them with the RGA samples. I think we need to keep a close eye on the behavior of these samples as almost all the 'weird' branches have turned out to be de novo assemblies.
 
 #Data Summary
-There are `r length(meta$Sample)` M.tb isolates from `r length(unique(meta$Iso2))` Countries that passed quality filters (at least 80% of H37Rv genome covered by 20X, and >75% of reads mapped). 
+There are `r length(meta$Sample)` M.tb isolates from `r length(unique(meta$Iso2))` Countries that passed quality filters (at least 80% of H37Rv genome covered by 20X, and >75% of reads mapped, and no more than 20% missing/ambiguous sites). 
 
 ```{r lineage, echo=FALSE, message=FALSE, warnings=FALSE}
 
@@ -74,7 +75,7 @@ aggregate(Sample ~ Lineage + WHORegion, meta, length)
 ```
 
 
-While all these samples passed the quality thresholds mentioned above (imposed on individual sequencing runs), a few are missing data for large portions of the genome.(Note that 11-12% of sites have been masked in all genomes due to poor resolution of the regions with short read technologies.)
+While all these samples passed the quality thresholds mentioned above (imposed on individual sequencing runs), a few were missing data for large portions of the genome.(Note that 11-12% of sites have been masked in all genomes due to poor resolution of the regions with short read technologies.) I have removed isolates with >20% missing/ambiguous sites.
 
 
 ```{r missing, echo=FALSE, message=FALSE, warnings=FALSE}
@@ -89,18 +90,6 @@ m <- ggplot(meta, aes(PercentMissingSites)) +
  
 plot(m) 
 ```
-
-Isolates with less greater than 20% of sites missing in the alignment:
-
-```{r missing2, echo=FALSE, message=FALSE, warnings=FALSE}
-
-missing <- subset(meta, PercentMissingSites > 20)
-
-missing[order(missing$PercentMissingSites),]
-
-```
-
-Do we want to include samples with lots of non-confident sites? I recommend we at least remove the two samples with >25% of sites missing.
 
 
 Let's look at these samples on a map! Note that precise latitude and longitude coordinates were used for samples that I could find sub-regional information for (i.e. city, province, etc.). If this level of info was not present, the average latitude and longitude coordinates of the County of origin were used.
@@ -126,10 +115,11 @@ mapDat2[is.na(mapDat2)] <- 0
 
 mapDat2$total = rowSums(mapDat2[,c("Lin1","Lin2","Lin3","Lin4","Lin5","Lin6","Lin7")])
 
-mapDat2$radius <- with(mapDat2, ifelse(total > 25, 6, 
-                               ifelse(total > 6, 5, 
-                               ifelse(total > 2, 4, 
-                               ifelse(total > 1, 3, 2)))))
+mapDat2$radius <- with(mapDat2, ifelse(total > 38, 7, 
+                               ifelse(total > 28, 6, 
+                               ifelse(total > 18, 5, 
+                               ifelse(total > 8, 4,       
+                               ifelse(total > 1, 3, 2))))))
 
 
 
@@ -147,7 +137,7 @@ for(i in 1:nrow(mapDat2)) {
 ```
 
 
-Here is a summary of the number of samples from each location after throwing out samples with poor sequencing data (earlier QC report I sent). For many of these countries (China, Russia, Malawi, any of the TB-ARC) we have other samples that we can draw from again - what are your thoughts on this? It shouldn't take as long since I have a pipeline worked out now. Also note that I have separtate coordinates for China and Taiwan - WHO treats Taiwan as part of China in terms of incidence rates.
+Here is a summary of the number of samples from each location after throwing out samples with poor sequencing data (earlier QC report I sent). Also note that I have separtate coordinates for China and Taiwan - WHO treats Taiwan as part of China in terms of incidence rates.
 
 ```{r byCountry, echo=FALSE, message=FALSE, warnings=FALSE}
 
@@ -164,21 +154,54 @@ cL[order(cL$total, decreasing=TRUE),]
 ```
 
 
+## Maximum Likelihood Tree
 
-And here is the tree produced by FastTree v2.1.8 from the SNP alignment. I need to play some more to make it look pretty in R.
+And here is the Maximum Likelihook tree was made with RAxML version 8.2.3 using the commands below:
+
+BestTree (full alignment):
+/opt/PepPrograms/standard-RAxML/raxmlHPC-PTHREADS-SSE3 -T 16 -m GTRGAMMA -p 123 -# 20 -s global_50per.fasta -n global_bestTree
+
+Rapid Bootstrap (snp alignment):
+/opt/PepPrograms/standard-RAxML/raxmlHPC-PTHREADS-SSE3-T 10 -m GTRGAMMA -p 123 -x 123 -# autoMR -s global_snps_50per.fa -n snp_rapidbootstrap
+
+Combine:
+/opt/PepPrograms/standard-RAxML/raxmlHPC-PTHREADS-SSE3 -T 2 -m GTRGAMMA -p 123 -f b -t RAxML_bestTree.global_bestTree -z RAxML_bootstrap.snp_rapidbootstrap -n 160412_RAxML_bestTree_rapidbootsnp.tree
 
 ```{r tree, echo=FALSE, message=FALSE, warnings=FALSE}
 
-library(ggplot2)
-library(ape)
-library(phangorn)
-library(ggtree)
+require(ggplot2)
+require(ape)
+#source("https://bioconductor.org/biocLite.R")
+#biocLite("ggtree")
+require("ggtree")
+require(phytools)
+require(phangorn)
+require(stringr)
 
-tree <- read.tree("C:/Users/Mary/PepLab/data/Phylogeography/trees/160212_snps.tree")
-midpoint_rooted <- midpoint(tree)
-reordered_tree <- reorder(midpoint_rooted)
-p <- ggtree(midpoint_rooted)  
+tre <- read.tree("C:/Users/Mary/PepLab/data/Phylogeography/trees/final_dataset/RAxML_bipartitions.160412_RAxML_bestTree_rapidbootsnp.tree")
 
-p
+isoInfo <- split(tre$tip.label, gsub("\\w+_", "", tre$tip.label))
+
+mpt <- midpoint(tre)
+mpt <- groupOTU(mpt, isoInfo)
+
+c1 <- ggtree(mpt, ladderize=FALSE, layout="circular") + 
+  #geom_treescale(offset=-10) + 
+  geom_tippoint(aes(color=group)) + 
+  #geom_cladelabel(node=569, label="L6") +
+  geom_hilight(node=569, fill="darkgreen", alpha=.2) +
+  #geom_cladelabel(node=1081, label="L5") +
+  geom_hilight(node=1081, fill="darkred", alpha=.2) +
+  #geom_cladelabel(node=991, label="L1") +
+  geom_hilight(node=991, fill="pink", alpha=.2) +
+  #geom_cladelabel(node=964, label="L7") +
+  geom_hilight(node=964, fill="yellow", alpha=.2) +
+  #geom_cladelabel(node=822, label="L4") +
+  geom_hilight(node=822, fill="red", alpha=.2) +
+  #geom_cladelabel(node=754, label="L3") +
+  geom_hilight(node=754, fill="purple", alpha=.2) +
+  #geom_cladelabel(node=574, label="L2") +
+  geom_hilight(node=574, fill="blue", alpha=.2)
+c1 
 ```
 
