@@ -123,40 +123,16 @@ country$perLin7 <- (country$Lin7/country$total)*100
 country[country == 0] <- NA
 
 
+c2 <- country[country$total != 1,]
+
 #join data to country map
-m2 <- joinCountryData2Map(country,
+m2 <- joinCountryData2Map(c2,
                           joinCode = "ISO2",
                           nameJoinColumn = "Iso2")
 
 
 
-
-op <- par(fin=c(7,9),mfcol=c(4,2),mai=c(0,0,0.2,0),xaxs="i",yaxs="i")
-
-panels = c("perLin1", "perLin2", "perLin3", "perLin4", "perLin5", "perLin6", "perLin7")
-brewerList <- c("Greens","Greys","Oranges","OrRd","PuBuGn","Purples","YlGn")
-
-for(i in 1:7)
-{
-  colourPalette <- brewer.pal(7,brewerList[i])
-  
-  lineage <- panels[i]
-  mapParams <- mapCountryData( m2
-                               , nameColumnToPlot=lineage
-                               , addLegend=FALSE
-                               , colourPalette=colourPalette
-                               , mapTitle=lineage)
-  do.call( addMapLegend
-           , c(mapParams, horizontal=TRUE,legendWidth=0.7))
-}
-
-
-par(op)
-
-
-###try2
-
-op <- par(fin=c(7,9),mfcol=c(2,2),mai=c(0,0,0.2,0),xaxs="i",yaxs="i")
+op <- par(fin=c(7,9),mfcol=c(2,2),mai=c(0.2,0.2,0.2,0.2),xaxs="i",yaxs="i")
 
 panels = c("perLin1", "perLin2", "perLin3", "perLin4") #, "perLin5", "perLin6", "perLin7")
 brewerList <- c("RdPu", "Blues", "Purples", "Reds")
@@ -169,13 +145,14 @@ for(i in 1:4)
   mapParams <- mapCountryData( m2
                                , nameColumnToPlot=lineage
                                , addLegend=FALSE
+                               , catMethod="pretty"
                                , colourPalette=colourPalette
-                               , mapTitle=lineage)
+                               , mapTitle=lineage
+                               , missingCountryCol="#EEEEEE")
   do.call( addMapLegend
            , c(mapParams, horizontal=TRUE,legendWidth=0.7))
 }
 
 
 par(op)
-
 
