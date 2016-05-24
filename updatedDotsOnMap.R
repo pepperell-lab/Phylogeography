@@ -1,4 +1,20 @@
 #Update "Dots on a Map" with rworldmap package
+require(rworldmap)
+
+#location to meta file
+metaFile <- "C:/Users/Mary/PepLab/data/Phylogeography/160223_finalizing/160203_passing.meta"
+
+#read tab deliminated file
+meta.pre <- read.table(metaFile, header=F, sep='\t', na.strings="NA")
+
+#assign the headers
+names(meta.pre) <- c('Sample','Runs', 'Country', 'SubRegion', 'Iso2', 'WHORegion', 'Lineage', 'Latitude', 'Longitude', 'PercentMissingSites')
+
+#force lineage into a factor
+meta.pre$Lineage <- as.factor(meta.pre$Lineage)
+
+meta <- meta.pre[-c(which(meta.pre$Sample=="CCJS01"), which(meta.pre$Sample=="ERS217661"), which(meta.pre$Sample=="ERS218324"), which(meta.pre$Sample=="CCBK01"), which(meta.pre$Sample=="CCSJ01")),]
+
 
 #convert data from one row per sample to one row per location per lineage
 dat.m <- aggregate(Sample ~ Lineage + Latitude + Longitude + Iso2 + WHORegion, meta, length)
@@ -19,8 +35,10 @@ mPDF <- joinCountryData2Map(dat,
 WHO = c("#FFFF5A","#00FFB7", "#5BA0FF", "#2DE200", "#FF9700")
 
 
-par(mai=c(0,0,0.2,0), xaxs="i", yaxs="i")
-m1 <- mapCountryData(mPDF, nameColumnToPlot="WHORegion", colourPalette=WHO)
+par(mai=c(.75,.75,.75,.75), xaxs="i", yaxs="i")
+mapCountryData(m2, nameColumnToPlot="WHORegion", 
+               colourPalette=WHO, xlim=c(10,180), ylim=c(-50, 90),
+               addLegend=FALSE, , missingCountryCol="#EEEEEE", borderCol="darkgrey")
 
 
 dat$size <- log2(dat$Total + 1)
@@ -124,31 +142,38 @@ country[country == 0] <- NA
 
 
 c2 <- country[country$total != 1,]
+c2[is.na(c2)] <- 0
 
 #join data to country map
 m2 <- joinCountryData2Map(c2,
                           joinCode = "ISO2",
                           nameJoinColumn = "Iso2")
 
+require(RColorBrewer)
 
-
-op <- par(fin=c(7,9),mfcol=c(2,2),mai=c(0.2,0.2,0.2,0.2),xaxs="i",yaxs="i")
+op <- par(fin=c(7,9),mfcol=c(2,2),mai=c(0.0,0.0,0.2,0.0),xaxs="i",yaxs="i")
 
 panels = c("perLin1", "perLin2", "perLin3", "perLin4") #, "perLin5", "perLin6", "perLin7")
 brewerList <- c("RdPu", "Blues", "Purples", "Reds")
 
 for(i in 1:4)
 {
-  colourPalette <- brewer.pal(7,brewerList[i])
+  colourPalette <- brewer.pal(7,brewerList[1])
   
   lineage <- panels[i]
   mapParams <- mapCountryData( m2
                                , nameColumnToPlot=lineage
                                , addLegend=FALSE
-                               , catMethod="pretty"
-                               , colourPalette=colourPalette
+                               , catMethod=c(0,1,10,20,30,40,50,60,70,80,90,100)
+                               , colourPalette=c('white', colourPalette)
                                , mapTitle=lineage
-                               , missingCountryCol="#EEEEEE")
+                               , xlim=c(-30,180)
+                               , ylim=c(-50, 90)
+                               #, mapRegion='africa'
+                               , missingCountryCol="#EEEEEE"
+                               , borderCol="darkgrey"
+                               , oceanCol=adjustcolor("#99CCFF", alpha.f = 0.5)
+                               )
   do.call( addMapLegend
            , c(mapParams, horizontal=TRUE,legendWidth=0.7))
 }
