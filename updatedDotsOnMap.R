@@ -16,16 +16,122 @@ meta.pre$Lineage <- as.factor(meta.pre$Lineage)
 meta <- meta.pre[-c(which(meta.pre$Sample=="CCJS01"), which(meta.pre$Sample=="ERS217661"), which(meta.pre$Sample=="ERS218324"), which(meta.pre$Sample=="CCBK01"), which(meta.pre$Sample=="CCSJ01")),]
 
 
-#convert data from one row per sample to one row per location per lineage
-dat.m <- aggregate(Sample ~ Lineage + Latitude + Longitude + Iso2 + WHORegion, meta, length)
+#Exclude samples from Beijing study (biased sampling as is only lineage 2)
+beijing <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/LineageFrequencies/Beijing_samples.exclude", header=TRUE)
+
+meta <- meta[!meta$Sample %in% beijing$SRA_Sample_s, ]
+
+
+#Convert data 
+
+country.m <- aggregate(Sample ~ Lineage + Iso2 + WHORegion, meta, length)
 
 #convert data to one row per location
-dat <- dcast(dat.m, Latitude + Longitude + Iso2 + WHORegion ~ Lineage)
-names(dat) <- c("Latitude","Longitude", "Iso2", "WHORegion", "Lin1","Lin2","Lin3","Lin4","Lin5","Lin6","Lin7")
-dat[is.na(dat)] <- 0
+country <- dcast(country.m, Iso2 + WHORegion ~ Lineage)
+names(country) <- c("Iso2", "WHORegion", "Lin1","Lin2","Lin3","Lin4","Lin5","Lin6","Lin7")
 
-#sum the number of isolates per location
-dat$Total = rowSums(dat[,c("Lin1","Lin2","Lin3","Lin4","Lin5","Lin6","Lin7")])
+
+#Edit country for downsampled locations
+c.mod <- country
+
+#India - TBARC
+c.mod[c.mod$Iso2 == "IN", 'Lin1'] <- 150
+c.mod[c.mod$Iso2 == "IN", 'Lin3'] <- 39
+c.mod[c.mod$Iso2 == "IN", 'Lin2'] <- 6
+c.mod[c.mod$Iso2 == "IN", 'Lin4'] <- 6
+c.mod[c.mod$Iso2 == "IN", 'Lin5'] <- NA
+c.mod[c.mod$Iso2 == "IN", 'Lin6'] <- NA
+c.mod[c.mod$Iso2 == "IN", 'Lin7'] <- NA
+
+#Mali - TBARC #####Still biased for 'M. africanum'
+c.mod[c.mod$Iso2 == "ML", 'Lin1'] <- 1
+c.mod[c.mod$Iso2 == "ML", 'Lin2'] <- 2
+c.mod[c.mod$Iso2 == "ML", 'Lin3'] <- NA
+c.mod[c.mod$Iso2 == "ML", 'Lin4'] <- 63
+c.mod[c.mod$Iso2 == "ML", 'Lin5'] <- 2
+c.mod[c.mod$Iso2 == "ML", 'Lin6'] <- 23
+c.mod[c.mod$Iso2 == "ML", 'Lin7'] <- NA
+
+#Moldova
+c.mod[c.mod$Iso2 == "MD", 'Lin1'] <- NA
+c.mod[c.mod$Iso2 == "MD", 'Lin2'] <- 34
+c.mod[c.mod$Iso2 == "MD", 'Lin3'] <- NA
+c.mod[c.mod$Iso2 == "MD", 'Lin4'] <- 60
+c.mod[c.mod$Iso2 == "MD", 'Lin5'] <- NA
+c.mod[c.mod$Iso2 == "MD", 'Lin6'] <- NA
+c.mod[c.mod$Iso2 == "MD", 'Lin7'] <- NA
+
+#Romania - TBARC
+c.mod[c.mod$Iso2 == "RO", 'Lin1'] <- NA
+c.mod[c.mod$Iso2 == "RO", 'Lin2'] <- NA
+c.mod[c.mod$Iso2 == "RO", 'Lin3'] <- NA
+c.mod[c.mod$Iso2 == "RO", 'Lin4'] <- 34
+c.mod[c.mod$Iso2 == "RO", 'Lin5'] <- NA
+c.mod[c.mod$Iso2 == "RO", 'Lin6'] <- NA
+c.mod[c.mod$Iso2 == "RO", 'Lin7'] <- NA
+
+#Russia - Samara study
+c.mod[c.mod$Iso2 == "RU", 'Lin1'] <- NA
+c.mod[c.mod$Iso2 == "RU", 'Lin2'] <- 642
+c.mod[c.mod$Iso2 == "RU", 'Lin3'] <- 3
+c.mod[c.mod$Iso2 == "RU", 'Lin4'] <- 355
+c.mod[c.mod$Iso2 == "RU", 'Lin5'] <- NA
+c.mod[c.mod$Iso2 == "RU", 'Lin6'] <- NA
+c.mod[c.mod$Iso2 == "RU", 'Lin7'] <- NA
+
+#Pakistan - ERP008770
+c.mod[c.mod$Iso2 == "PK", 'Lin1'] <- 5
+c.mod[c.mod$Iso2 == "PK", 'Lin2'] <- NA
+c.mod[c.mod$Iso2 == "PK", 'Lin3'] <- 33
+c.mod[c.mod$Iso2 == "PK", 'Lin4'] <- 4
+c.mod[c.mod$Iso2 == "PK", 'Lin5'] <- NA
+c.mod[c.mod$Iso2 == "PK", 'Lin6'] <- NA
+c.mod[c.mod$Iso2 == "PK", 'Lin7'] <- NA
+
+#Uganda - ERP000520
+c.mod[c.mod$Iso2 == "UG", 'Lin1'] <- 1
+c.mod[c.mod$Iso2 == "UG", 'Lin2'] <- 1
+c.mod[c.mod$Iso2 == "UG", 'Lin3'] <- 14
+c.mod[c.mod$Iso2 == "UG", 'Lin4'] <- 35
+c.mod[c.mod$Iso2 == "UG", 'Lin5'] <- NA
+c.mod[c.mod$Iso2 == "UG", 'Lin6'] <- NA
+c.mod[c.mod$Iso2 == "UG", 'Lin7'] <- NA
+
+#Portugal - ERP002611
+c.mod[c.mod$Iso2 == "PT", 'Lin1'] <- NA
+c.mod[c.mod$Iso2 == "PT", 'Lin2'] <- 4
+c.mod[c.mod$Iso2 == "PT", 'Lin3'] <- 1
+c.mod[c.mod$Iso2 == "PT", 'Lin4'] <- 39
+c.mod[c.mod$Iso2 == "PT", 'Lin5'] <- NA
+c.mod[c.mod$Iso2 == "PT", 'Lin6'] <- NA
+c.mod[c.mod$Iso2 == "PT", 'Lin7'] <- NA
+
+#Malawi 
+c.mod[c.mod$Iso2 == "MW", 'Lin1'] <- 269
+c.mod[c.mod$Iso2 == "MW", 'Lin2'] <- 74
+c.mod[c.mod$Iso2 == "MW", 'Lin3'] <- 205
+c.mod[c.mod$Iso2 == "MW", 'Lin4'] <- 1139
+c.mod[c.mod$Iso2 == "MW", 'Lin5'] <- NA
+c.mod[c.mod$Iso2 == "MW", 'Lin6'] <- NA
+c.mod[c.mod$Iso2 == "MW", 'Lin7'] <- NA
+
+#Ethiopia - from typing study
+c.mod[c.mod$Iso2 == "ET", 'Lin1'] <- 11
+c.mod[c.mod$Iso2 == "ET", 'Lin2'] <- NA
+c.mod[c.mod$Iso2 == "ET", 'Lin3'] <- 236
+c.mod[c.mod$Iso2 == "ET", 'Lin4'] <- 671
+c.mod[c.mod$Iso2 == "ET", 'Lin5'] <- NA
+c.mod[c.mod$Iso2 == "ET", 'Lin6'] <- NA
+c.mod[c.mod$Iso2 == "ET", 'Lin7'] <- 36
+
+#c.mod[c.mod$Iso2 == "RU", 'Lin1'] <- NA
+#c.mod[c.mod$Iso2 == "RU", 'Lin2'] <- NA
+#c.mod[c.mod$Iso2 == "RU", 'Lin3'] <- NA
+#c.mod[c.mod$Iso2 == "RU", 'Lin4'] <- NA
+#c.mod[c.mod$Iso2 == "RU", 'Lin5'] <- NA
+#c.mod[c.mod$Iso2 == "RU", 'Lin6'] <- NA
+#c.mod[c.mod$Iso2 == "RU", 'Lin7'] <- NA
+#####
 
 mPDF <- joinCountryData2Map(dat,
                             joinCode = "ISO2",
@@ -53,13 +159,6 @@ mapBubbles( dF=mPDF
 #)
 
 
-### Lineage Specific
-
-country.m <- aggregate(Sample ~ Lineage + Iso2 + WHORegion, meta, length)
-
-#convert data to one row per location
-country <- dcast(country.m, Iso2 + WHORegion ~ Lineage)
-names(country) <- c("Iso2", "WHORegion", "Lin1","Lin2","Lin3","Lin4","Lin5","Lin6","Lin7")
 
 #join data to country map
 m2 <- joinCountryData2Map(country,
@@ -121,9 +220,11 @@ names(country) <- c("Iso2", "WHORegion", "Lin1","Lin2","Lin3","Lin4","Lin5","Lin
 
 #convert NA's to 0's
 country[is.na(country)] <- 0
+c.mod[is.na(c.mod)] <- 0
 
 #calculate total number of samples from each country
 country$total = rowSums(country[,c("Lin1","Lin2","Lin3","Lin4","Lin5","Lin6","Lin7")])
+c.mod$total = rowSums(c.mod[,c("Lin1","Lin2","Lin3","Lin4","Lin5","Lin6","Lin7")])
 
 #calculate lineage frequencies for each country
 #country$perLin1 <- (country$Lin1 / sum(country$Lin1, na.rm=TRUE))*100
@@ -138,10 +239,19 @@ country$perLin6 <- (country$Lin6/country$total)*100
 country$perLin7 <- (country$Lin7/country$total)*100
 
 
+c.mod$perLin1 <- (c.mod$Lin1/c.mod$total)*100
+c.mod$perLin2 <- (c.mod$Lin2/c.mod$total)*100
+c.mod$perLin3 <- (c.mod$Lin3/c.mod$total)*100
+c.mod$perLin4 <- (c.mod$Lin4/c.mod$total)*100
+c.mod$perLin5 <- (c.mod$Lin5/c.mod$total)*100
+c.mod$perLin6 <- (c.mod$Lin6/c.mod$total)*100
+c.mod$perLin7 <- (c.mod$Lin7/c.mod$total)*100
+
 country[country == 0] <- NA
+c.mod[c.mod == 0] <- NA
 
-
-c2 <- country[country$total != 1,]
+#exclude countries with only one data point
+c2 <- c.mod[c.mod$total != 1,]
 c2[is.na(c2)] <- 0
 
 #join data to country map
