@@ -1,0 +1,255 @@
+---
+title: "Lineage Frequencies"
+author: "Mary O'Neill"
+date: "June 13, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(rworldmap)
+require(reshape2)
+require(RColorBrewer)
+```
+
+## Import the data
+
+```{r data}
+#location to meta file
+metaFile <- "C:/Users/Mary/PepLab/data/Phylogeography/160223_finalizing/160203_passing.meta"
+
+#read tab deliminated file
+meta.pre <- read.table(metaFile, header=F, sep='\t', na.strings="NA")
+
+#assign the headers
+names(meta.pre) <- c('Sample','Runs', 'Country', 'SubRegion', 'Iso2', 'WHORegion', 'Lineage', 'Latitude', 'Longitude', 'PercentMissingSites')
+
+#force lineage into a factor
+meta.pre$Lineage <- as.factor(meta.pre$Lineage)
+
+#remove samples identified as outliers/failing QC
+meta <- meta.pre[-c(which(meta.pre$Sample=="CCJS01"), which(meta.pre$Sample=="ERS217661"), which(meta.pre$Sample=="ERS218324"), which(meta.pre$Sample=="CCBK01"), which(meta.pre$Sample=="CCSJ01")),]
+
+#Exclude samples from Beijing study (biased sampling as is only lineage 2)
+beijing <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/LineageFrequencies/Beijing_samples.exclude", header=TRUE)
+
+meta <- meta[!meta$Sample %in% beijing$SRA_Sample_s, ]
+
+#Convert data 
+country.m <- aggregate(Sample ~ Lineage + Iso2 + WHORegion, meta, length)
+
+#convert data to one row per location
+country <- dcast(country.m, Iso2 + WHORegion ~ Lineage)
+names(country) <- c("Iso2", "WHORegion", "Lin1","Lin2","Lin3","Lin4","Lin5","Lin6","Lin7")
+
+```
+
+The file being read in contains meta information for samples passing QC analsis (note an additional five are removed due to QC as well). As the 2015 Beijing family study will bias interpolation of lineage frequencies because only lineage 2 samples were included in their analysis, these `r length(beijing$SRA_Sample_s)` samples are excluded from this analysis.
+
+
+## Modifying lineage counts for countries that were downsampled
+For each country that was downsampled, the lineage counts were manually changed to those that reflect the entire dataset. Note that many of these are likely biased as they are enriched for drug resistant strains. In the case of Mali, 'M. africanum' strains have been oversampled.
+
+```{r mod}
+#Edit country for downsampled locations
+c.mod <- country
+
+#India - TBARC of 222 samples
+c.mod[c.mod$Iso2 == "IN", 'Lin1'] <- 150
+c.mod[c.mod$Iso2 == "IN", 'Lin2'] <- 27
+c.mod[c.mod$Iso2 == "IN", 'Lin3'] <- 39
+c.mod[c.mod$Iso2 == "IN", 'Lin4'] <- 6
+c.mod[c.mod$Iso2 == "IN", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "IN", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "IN", 'Lin7'] <- 0
+
+#Mali - TBARC #####Still biased for 'M. africanum'
+c.mod[c.mod$Iso2 == "ML", 'Lin1'] <- 1
+c.mod[c.mod$Iso2 == "ML", 'Lin2'] <- 2
+c.mod[c.mod$Iso2 == "ML", 'Lin3'] <- 0
+c.mod[c.mod$Iso2 == "ML", 'Lin4'] <- 63
+c.mod[c.mod$Iso2 == "ML", 'Lin5'] <- 2
+c.mod[c.mod$Iso2 == "ML", 'Lin6'] <- 23
+c.mod[c.mod$Iso2 == "ML", 'Lin7'] <- 0
+
+#Moldova
+c.mod[c.mod$Iso2 == "MD", 'Lin1'] <- 0
+c.mod[c.mod$Iso2 == "MD", 'Lin2'] <- 34
+c.mod[c.mod$Iso2 == "MD", 'Lin3'] <- 0
+c.mod[c.mod$Iso2 == "MD", 'Lin4'] <- 60
+c.mod[c.mod$Iso2 == "MD", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "MD", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "MD", 'Lin7'] <- 0
+
+#Romania - TBARC
+c.mod[c.mod$Iso2 == "RO", 'Lin1'] <- 0
+c.mod[c.mod$Iso2 == "RO", 'Lin2'] <- 0
+c.mod[c.mod$Iso2 == "RO", 'Lin3'] <- 0
+c.mod[c.mod$Iso2 == "RO", 'Lin4'] <- 34
+c.mod[c.mod$Iso2 == "RO", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "RO", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "RO", 'Lin7'] <- 0
+
+#Russia - Samara study
+c.mod[c.mod$Iso2 == "RU", 'Lin1'] <- 2
+c.mod[c.mod$Iso2 == "RU", 'Lin2'] <- 642
+c.mod[c.mod$Iso2 == "RU", 'Lin3'] <- 1
+c.mod[c.mod$Iso2 == "RU", 'Lin4'] <- 355
+c.mod[c.mod$Iso2 == "RU", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "RU", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "RU", 'Lin7'] <- 0
+
+#Pakistan - ERP008770
+c.mod[c.mod$Iso2 == "PK", 'Lin1'] <- 5
+c.mod[c.mod$Iso2 == "PK", 'Lin2'] <- 0
+c.mod[c.mod$Iso2 == "PK", 'Lin3'] <- 33
+c.mod[c.mod$Iso2 == "PK", 'Lin4'] <- 4
+c.mod[c.mod$Iso2 == "PK", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "PK", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "PK", 'Lin7'] <- 0
+
+#Uganda - ERP000520
+c.mod[c.mod$Iso2 == "UG", 'Lin1'] <- 1
+c.mod[c.mod$Iso2 == "UG", 'Lin2'] <- 1
+c.mod[c.mod$Iso2 == "UG", 'Lin3'] <- 14
+c.mod[c.mod$Iso2 == "UG", 'Lin4'] <- 35
+c.mod[c.mod$Iso2 == "UG", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "UG", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "UG", 'Lin7'] <- 0
+
+#Portugal - ERP002611
+c.mod[c.mod$Iso2 == "PT", 'Lin1'] <- 0
+c.mod[c.mod$Iso2 == "PT", 'Lin2'] <- 4
+c.mod[c.mod$Iso2 == "PT", 'Lin3'] <- 1
+c.mod[c.mod$Iso2 == "PT", 'Lin4'] <- 39
+c.mod[c.mod$Iso2 == "PT", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "PT", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "PT", 'Lin7'] <- 0
+
+#Malawi 
+c.mod[c.mod$Iso2 == "MW", 'Lin1'] <- 269
+c.mod[c.mod$Iso2 == "MW", 'Lin2'] <- 74
+c.mod[c.mod$Iso2 == "MW", 'Lin3'] <- 205
+c.mod[c.mod$Iso2 == "MW", 'Lin4'] <- 1139
+c.mod[c.mod$Iso2 == "MW", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "MW", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "MW", 'Lin7'] <- 0
+
+#Ethiopia - from typing study
+c.mod[c.mod$Iso2 == "ET", 'Lin1'] <- 11
+c.mod[c.mod$Iso2 == "ET", 'Lin2'] <- 0
+c.mod[c.mod$Iso2 == "ET", 'Lin3'] <- 236
+c.mod[c.mod$Iso2 == "ET", 'Lin4'] <- 671
+c.mod[c.mod$Iso2 == "ET", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "ET", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "ET", 'Lin7'] <- 36
+
+#South Africa - based on 219 TBARC samples in my tree (vs 337 reported)
+c.mod[c.mod$Iso2 == "TW", 'Lin1'] <- 6
+c.mod[c.mod$Iso2 == "TW", 'Lin2'] <- 51
+c.mod[c.mod$Iso2 == "TW", 'Lin3'] <- 3
+c.mod[c.mod$Iso2 == "TW", 'Lin4'] <- 145
+c.mod[c.mod$Iso2 == "TW", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "TW", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "TW", 'Lin7'] <- 0
+
+#Taiwan - based on 14 that had 'Taiwan' in the meta data (several were from Colombia and/or listed as unknown)
+c.mod[c.mod$Iso2 == "ZA", 'Lin1'] <- 2
+c.mod[c.mod$Iso2 == "ZA", 'Lin2'] <- 8
+c.mod[c.mod$Iso2 == "ZA", 'Lin3'] <- 0
+c.mod[c.mod$Iso2 == "ZA", 'Lin4'] <- 4
+c.mod[c.mod$Iso2 == "ZA", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "ZA", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "ZA", 'Lin7'] <- 0
+
+#Chia - based on Comas MTBC collection
+c.mod[c.mod$Iso2 == "CN", 'Lin1'] <- 3
+c.mod[c.mod$Iso2 == "CN", 'Lin2'] <- 50
+c.mod[c.mod$Iso2 == "CN", 'Lin3'] <- 0
+c.mod[c.mod$Iso2 == "CN", 'Lin4'] <- 1
+c.mod[c.mod$Iso2 == "CN", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "CN", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "CN", 'Lin7'] <- 0
+
+#Egypt - All Tallat lab Egypt samples
+c.mod[c.mod$Iso2 == "EG", 'Lin1'] <- 2
+c.mod[c.mod$Iso2 == "EG", 'Lin2'] <- 0
+c.mod[c.mod$Iso2 == "EG", 'Lin3'] <- 17
+c.mod[c.mod$Iso2 == "EG", 'Lin4'] <- 0
+c.mod[c.mod$Iso2 == "EG", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "EG", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "EG", 'Lin7'] <- 0
+
+```
+
+## Calculate lineage frequencies
+
+```{r calcFreq}
+#convert NA's to 0's
+c.mod[is.na(c.mod)] <- 0
+
+#calculate total number of samples from each country
+c.mod$total = rowSums(c.mod[,c("Lin1","Lin2","Lin3","Lin4","Lin5","Lin6","Lin7")])
+
+#calculate lineage frequencies for each country
+c.mod$perLin1 <- (c.mod$Lin1/c.mod$total)*100
+c.mod$perLin2 <- (c.mod$Lin2/c.mod$total)*100
+c.mod$perLin3 <- (c.mod$Lin3/c.mod$total)*100
+c.mod$perLin4 <- (c.mod$Lin4/c.mod$total)*100
+c.mod$perLin5 <- (c.mod$Lin5/c.mod$total)*100
+c.mod$perLin6 <- (c.mod$Lin6/c.mod$total)*100
+c.mod$perLin7 <- (c.mod$Lin7/c.mod$total)*100
+
+#convert zeros to NA to allow exclusion of countries with only one data point
+#c.mod[c.mod == 0] <- NA
+
+#exclude countries with only one data point
+c2 <- c.mod[c.mod$total != 1,]
+
+#Show countries with less than 10 samples
+small <- c2[c2$total < 10, 1:10]
+small[order(small$total),]
+```
+
+Excluding countries with only one sample results in `r (length(c.mod$Iso2) - length(c2$Iso2))` of `r length(c.mod$Iso2)` countries being removed for which we have WGS data of isolates from. Those countries for which we have less than ten isolates are printed above. We may consider raising the cutoff higher as these are not great representations of country level data.
+
+
+## Plot the data!
+
+```{r plotting, echo=FALSE}
+
+#join data to country map
+m2 <- joinCountryData2Map(c2,
+                          joinCode = "ISO2",
+                          nameJoinColumn = "Iso2")
+
+op <- par(fin=c(7,9),mfcol=c(2,2),mai=c(0.0,0.0,0.2,0.0),xaxs="i",yaxs="i")
+
+panels = c("perLin1", "perLin2", "perLin3", "perLin4") #, "perLin5", "perLin6", "perLin7")
+#brewerList <- c("Reds", "RdPu", "Blues", "Purples", "Reds")
+
+for(i in 1:4)
+{
+  colourPalette <- brewer.pal(7,"Reds")
+  
+  lineage <- panels[i]
+  mapParams <- mapCountryData( m2
+                               , nameColumnToPlot=lineage
+                               , addLegend=FALSE
+                               , catMethod=c(0,1,10,20,30,40,50,60,70,80,90,100)
+                               , colourPalette=c('white', colourPalette)
+                               , mapTitle=lineage
+                               , xlim=c(20,140)
+                               , ylim=c(-40, 80)
+                               #, mapRegion='africa'
+                               , missingCountryCol="#EEEEEE"
+                               , borderCol="darkgrey"
+                               , oceanCol=adjustcolor("#99CCFF")
+  )
+  do.call( addMapLegend
+           , c(mapParams, horizontal=FALSE, legendLabels="none", legendWidth=0.7))
+}
+
+
+par(op)
+```
