@@ -1,0 +1,903 @@
+---
+title: "Phylo_Figures"
+author: "Mary O'Neill"
+date: "November 10, 2016"
+output: html_document
+---
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE)
+require(ggplot2)
+require(ape)
+#source("https://bioconductor.org/biocLite.R")
+#biocLite("ggtree")
+require("ggtree")
+require(phytools)
+require(phangorn)
+require(cowplot)
+require(rworldmap)
+require(reshape2)
+require(RColorBrewer)
+require(data.table)
+require(splitstackshape)
+library(viridis)
+library(colorRamps)
+library(scales)
+
+opts_knit$set(root.dir = "C://Users/Mary/PepLab/data/Phylogeography/Phylo_Figures_Data/")               
+```
+
+
+##Trees colored by UN regions
+```{r UNtree, echo=FALSE}
+#read trees
+snp <- read.tree("RAxML_snp.tree")
+full <- read.tree("RAxML_full_rapidbootstrap.tree")
+
+#load the Iso2 to UN decoding
+un <- read.table("iso2_to_UNreg.txt")
+
+#assign UN groups
+snpUN <- split(snp$tip.label, un[match(lapply(strsplit(as.character(snp$tip.label), "_"), "[", 2), un$V1), 'V2'])
+fullUN <- split(full$tip.label, un[match(lapply(strsplit(as.character(full$tip.label), "_"), "[", 2), un$V1), 'V2'])
+
+#Midpoint tree and group by UN region
+snpmpt <- midpoint(snp)
+snpmpt <- groupOTU(snpmpt, snpUN) 
+
+fullmpt <- midpoint(full)
+fullmpt <- groupOTU(fullmpt, fullUN)
+
+#Plot the trees
+
+snpTree <- ggtree(snpmpt, layout="circular") + 
+  geom_tippoint(aes(color=group)) #+ 
+  #geom_treescale(offset=-10) 
+
+fullTree <- ggtree(fullmpt, layout="circular") + 
+  geom_tippoint(aes(color=group)) #+ 
+  #geom_treescale(offset=-10) 
+
+#Load the BEAST tree
+beast <- read.beast("Mtb.SNPs.2016.02.23.GTR+G.Const.Strict.DiscreteSym.100m.Combined.MCC.tree")
+
+tre_data <- fortify(beast)
+
+#subset the tip data
+tre_tips <- subset(tre_data, isTip == TRUE, c(label, Geography))
+
+#subset the tip data
+tre_tips <- subset(tre_data, isTip == TRUE, c(label, Geography))
+
+#match the country to the UN regions
+tre_tips$un <- un[match(tre_tips$Geography, un$V1), 'V2']
+
+#split the tips by country
+tre_groups = split(tre_tips$label, tre_tips$un)
+
+#group tree by UN region
+tre.g <- groupOTU(beast, tre_groups)
+
+beastTree <- ggtree(tre.g, layout="circular") + 
+  geom_tippoint(aes(color=group)) #+ 
+  #geom_treescale(offset=-10)
+
+#Plot together
+
+plot_grid(snpTree, fullTree, beastTree, NULL, labels = c("A", "B", "C"), nrow=1)
+```
+
+Trees colored by UN region. A.) RAxML tree based on SNP alignment. B.) RAxML tree based on full alignment, rapid bootstraping of snp alignment. C.) BEAST tree.
+
+
+## Lineage Frequencies
+The file being read in contains meta information for samples passing QC analsis. As the 2015 Beijing family study will bias interpolation of lineage frequencies because only lineage 2 samples were included in their analysis, those samples are excluded from this analysis.
+
+Lineage counts for countries that were downsampled have been modified. For each country that was downsampled, the lineage counts were manually changed to those that reflect the entire dataset. Note that many of these are likely biased as they are enriched for drug resistant strains. In the case of Mali, 'M. africanum' strains have been oversampled
+
+```{r linFreq, echo=FALSE, warning=FALSE}
+#location to meta file
+metaFile <- "160907_passing_UN.meta"
+
+#read tab deliminated file
+meta.pre <- read.table(metaFile, header=F, sep='\t', na.strings="NA")
+
+#assign the headers
+names(meta.pre) <- c('Sample','Runs', 'Country', 'SubRegion', 'Iso2', 'WHORegion', 'Lineage', 'Latitude', 'Longitude', 'PercentMissingSites', 'UN')
+
+#force lineage into a factor
+meta.pre$Lineage <- as.factor(meta.pre$Lineage)
+
+#Exclude samples from Beijing study (biased sampling as is only lineage 2)
+beijing <- read.table("Beijing_samples.exclude", header=TRUE)
+
+meta <- meta.pre[!meta.pre$Sample %in% beijing$SRA_Sample_s, ]
+
+#Convert data 
+country.m <- aggregate(Sample ~ Lineage + Iso2 + WHORegion + UN, meta, length)
+
+#convert data to one row per location
+country <- dcast(country.m, Iso2 + WHORegion + UN ~ Lineage)
+names(country) <- c("Iso2", "WHORegion", "UN", "Lin1", "Lin2", "Lin3", "Lin4", "Lin5", "Lin6", "Lin7")
+
+#Edit country for downsampled locations
+c.mod <- country
+
+#India - TBARC of 222 samples
+c.mod[c.mod$Iso2 == "IN", 'Lin1'] <- 150
+c.mod[c.mod$Iso2 == "IN", 'Lin2'] <- 27
+c.mod[c.mod$Iso2 == "IN", 'Lin3'] <- 39
+c.mod[c.mod$Iso2 == "IN", 'Lin4'] <- 6
+c.mod[c.mod$Iso2 == "IN", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "IN", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "IN", 'Lin7'] <- 0
+
+#Mali - TBARC #####Still biased for 'M. africanum'
+c.mod[c.mod$Iso2 == "ML", 'Lin1'] <- 1
+c.mod[c.mod$Iso2 == "ML", 'Lin2'] <- 2
+c.mod[c.mod$Iso2 == "ML", 'Lin3'] <- 0
+c.mod[c.mod$Iso2 == "ML", 'Lin4'] <- 63
+c.mod[c.mod$Iso2 == "ML", 'Lin5'] <- 2
+c.mod[c.mod$Iso2 == "ML", 'Lin6'] <- 23
+c.mod[c.mod$Iso2 == "ML", 'Lin7'] <- 0
+
+#Moldova
+c.mod[c.mod$Iso2 == "MD", 'Lin1'] <- 0
+c.mod[c.mod$Iso2 == "MD", 'Lin2'] <- 34
+c.mod[c.mod$Iso2 == "MD", 'Lin3'] <- 0
+c.mod[c.mod$Iso2 == "MD", 'Lin4'] <- 60
+c.mod[c.mod$Iso2 == "MD", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "MD", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "MD", 'Lin7'] <- 0
+
+#Romania - TBARC
+c.mod[c.mod$Iso2 == "RO", 'Lin1'] <- 0
+c.mod[c.mod$Iso2 == "RO", 'Lin2'] <- 0
+c.mod[c.mod$Iso2 == "RO", 'Lin3'] <- 0
+c.mod[c.mod$Iso2 == "RO", 'Lin4'] <- 34
+c.mod[c.mod$Iso2 == "RO", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "RO", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "RO", 'Lin7'] <- 0
+
+#Russia - Samara study
+c.mod[c.mod$Iso2 == "RU", 'Lin1'] <- 2
+c.mod[c.mod$Iso2 == "RU", 'Lin2'] <- 642
+c.mod[c.mod$Iso2 == "RU", 'Lin3'] <- 1
+c.mod[c.mod$Iso2 == "RU", 'Lin4'] <- 355
+c.mod[c.mod$Iso2 == "RU", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "RU", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "RU", 'Lin7'] <- 0
+
+#Pakistan - ERP008770
+c.mod[c.mod$Iso2 == "PK", 'Lin1'] <- 5
+c.mod[c.mod$Iso2 == "PK", 'Lin2'] <- 0
+c.mod[c.mod$Iso2 == "PK", 'Lin3'] <- 33
+c.mod[c.mod$Iso2 == "PK", 'Lin4'] <- 4
+c.mod[c.mod$Iso2 == "PK", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "PK", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "PK", 'Lin7'] <- 0
+
+#Uganda - ERP000520
+c.mod[c.mod$Iso2 == "UG", 'Lin1'] <- 1
+c.mod[c.mod$Iso2 == "UG", 'Lin2'] <- 1
+c.mod[c.mod$Iso2 == "UG", 'Lin3'] <- 14
+c.mod[c.mod$Iso2 == "UG", 'Lin4'] <- 35
+c.mod[c.mod$Iso2 == "UG", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "UG", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "UG", 'Lin7'] <- 0
+
+#Portugal - ERP002611
+c.mod[c.mod$Iso2 == "PT", 'Lin1'] <- 0
+c.mod[c.mod$Iso2 == "PT", 'Lin2'] <- 4
+c.mod[c.mod$Iso2 == "PT", 'Lin3'] <- 1
+c.mod[c.mod$Iso2 == "PT", 'Lin4'] <- 39
+c.mod[c.mod$Iso2 == "PT", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "PT", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "PT", 'Lin7'] <- 0
+
+#Malawi 
+c.mod[c.mod$Iso2 == "MW", 'Lin1'] <- 269
+c.mod[c.mod$Iso2 == "MW", 'Lin2'] <- 74
+c.mod[c.mod$Iso2 == "MW", 'Lin3'] <- 205
+c.mod[c.mod$Iso2 == "MW", 'Lin4'] <- 1139
+c.mod[c.mod$Iso2 == "MW", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "MW", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "MW", 'Lin7'] <- 0
+
+#Ethiopia - from typing study
+c.mod[c.mod$Iso2 == "ET", 'Lin1'] <- 11
+c.mod[c.mod$Iso2 == "ET", 'Lin2'] <- 0
+c.mod[c.mod$Iso2 == "ET", 'Lin3'] <- 236
+c.mod[c.mod$Iso2 == "ET", 'Lin4'] <- 671
+c.mod[c.mod$Iso2 == "ET", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "ET", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "ET", 'Lin7'] <- 36
+
+#South Africa - based on 219 TBARC samples in my tree (vs 337 reported)
+c.mod[c.mod$Iso2 == "TW", 'Lin1'] <- 6
+c.mod[c.mod$Iso2 == "TW", 'Lin2'] <- 51
+c.mod[c.mod$Iso2 == "TW", 'Lin3'] <- 3
+c.mod[c.mod$Iso2 == "TW", 'Lin4'] <- 145
+c.mod[c.mod$Iso2 == "TW", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "TW", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "TW", 'Lin7'] <- 0
+
+#Taiwan - based on 14 that had 'Taiwan' in the meta data (several were from Colombia and/or listed as unknown)
+c.mod[c.mod$Iso2 == "ZA", 'Lin1'] <- 2
+c.mod[c.mod$Iso2 == "ZA", 'Lin2'] <- 8
+c.mod[c.mod$Iso2 == "ZA", 'Lin3'] <- 0
+c.mod[c.mod$Iso2 == "ZA", 'Lin4'] <- 4
+c.mod[c.mod$Iso2 == "ZA", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "ZA", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "ZA", 'Lin7'] <- 0
+
+#Chia - based on Comas MTBC collection
+c.mod[c.mod$Iso2 == "CN", 'Lin1'] <- 3
+c.mod[c.mod$Iso2 == "CN", 'Lin2'] <- 50
+c.mod[c.mod$Iso2 == "CN", 'Lin3'] <- 0
+c.mod[c.mod$Iso2 == "CN", 'Lin4'] <- 1
+c.mod[c.mod$Iso2 == "CN", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "CN", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "CN", 'Lin7'] <- 0
+
+#Egypt - All Tallat lab Egypt samples
+c.mod[c.mod$Iso2 == "EG", 'Lin1'] <- 2
+c.mod[c.mod$Iso2 == "EG", 'Lin2'] <- 0
+c.mod[c.mod$Iso2 == "EG", 'Lin3'] <- 17
+c.mod[c.mod$Iso2 == "EG", 'Lin4'] <- 0
+c.mod[c.mod$Iso2 == "EG", 'Lin5'] <- 0
+c.mod[c.mod$Iso2 == "EG", 'Lin6'] <- 0
+c.mod[c.mod$Iso2 == "EG", 'Lin7'] <- 0
+
+#convert NA's to 0's
+c.mod[is.na(c.mod)] <- 0
+
+#calculate total number of samples from each country
+c.mod$total = rowSums(c.mod[,c("Lin1","Lin2","Lin3","Lin4","Lin5","Lin6","Lin7")])
+c.mod$tot14 = rowSums(c.mod[,c("Lin1","Lin2","Lin3","Lin4")])
+
+
+#calculate lineage frequencies for each country
+c.mod$perLin1 <- (c.mod$Lin1/c.mod$total)*100
+c.mod$perLin2 <- (c.mod$Lin2/c.mod$total)*100
+c.mod$perLin3 <- (c.mod$Lin3/c.mod$total)*100
+c.mod$perLin4 <- (c.mod$Lin4/c.mod$total)*100
+c.mod$perLin5 <- (c.mod$Lin5/c.mod$total)*100
+c.mod$perLin6 <- (c.mod$Lin6/c.mod$total)*100
+c.mod$perLin7 <- (c.mod$Lin7/c.mod$total)*100
+
+c.mod$per14_Lin1 <- (c.mod$Lin1/c.mod$tot14)*100
+c.mod$per14_Lin2 <- (c.mod$Lin2/c.mod$tot14)*100
+c.mod$per14_Lin3 <- (c.mod$Lin3/c.mod$tot14)*100
+c.mod$per14_Lin4 <- (c.mod$Lin4/c.mod$tot14)*100
+
+
+#convert zeros to NA to allow exclusion of countries with only one data point
+#c.mod[c.mod == 0] <- NA
+
+#exclude countries with only one data point
+c2 <- c.mod[c.mod$total != 1,]
+
+#Show countries with less than 10 samples
+#small <- c2[c2$total < 10, 1:11]
+#small[order(small$total),]
+
+#join data to country map
+m2 <- joinCountryData2Map(c2,
+                          joinCode = "ISO2",
+                          nameJoinColumn = "Iso2")
+
+op <- par(fin=c(7,9),mfcol=c(2,2),mai=c(0.2,0.2,0.4,0.2),xaxs="i",yaxs="i")
+
+panels = c("per14_Lin1", "per14_Lin2", "per14_Lin3", "per14_Lin4")
+
+for(i in 1:4)
+{
+  colourPalette <- brewer.pal(7,"Reds")
+  
+  lineage <- panels[i]
+  mapParams <- mapCountryData( m2
+                               , nameColumnToPlot=lineage
+                               , addLegend=FALSE
+                               , catMethod=c(0,1,10,20,30,40,50,60,70,80,90,100)
+                               , colourPalette=c('white', colourPalette)
+                               , mapTitle=lineage
+                               , xlim=c(20,140)
+                               , ylim=c(-40, 80)
+                               #, mapRegion='africa'
+                               , missingCountryCol="#EEEEEE"
+                               , borderCol="darkgrey"
+                               , oceanCol=adjustcolor("#99CCFF")
+  )
+  do.call( addMapLegend
+           , c(mapParams, horizontal=FALSE, legendLabels="none", legendWidth=0.7))
+}
+
+
+par(op)
+
+
+  
+#####SITVITWEB lineage frequencies
+  
+
+#location to meta file
+dat <- read.table("country_spoligo_lineages_v2_mod.txt", header=T, sep='\t', na.strings="NA")
+
+dat2 <- dat[!is.na(dat$lineage),]
+
+#Convert data 
+co.m <- aggregate(Num ~ Country + lineage, dat2, sum)
+
+#convert data to one row per location
+co <- dcast(co.m, Country ~ lineage)
+names(co) <- c("Iso3", "Lin3","Lin2","Lin4","Lin1","Lin5","Lin6")
+
+co <- co[, c(1:5)]
+
+#convert NA's to 0's
+co[is.na(co)] <- 0
+
+#calculate total number of samples from each country
+co$tot14 = rowSums(co[,c("Lin1","Lin2","Lin3","Lin4")])
+
+
+#calculate lineage frequencies for each country
+co$per14_Lin1 <- (co$Lin1/co$tot14)*100
+co$per14_Lin2 <- (co$Lin2/co$tot14)*100
+co$per14_Lin3 <- (co$Lin3/co$tot14)*100
+co$per14_Lin4 <- (co$Lin4/co$tot14)*100
+
+
+#exclude countries with less than 10 data points
+c2 <- co[co$tot14 > 10,]
+
+#Show countries with less than 10 samples
+#small <- co[co$tot14 < 10, 1:10]
+#small[order(small$tot14),]
+
+#join data to country map
+m2 <- joinCountryData2Map(c2,
+                          joinCode = "ISO3",
+                          nameJoinColumn = "Iso3")
+
+op <- par(fin=c(7,9),mfcol=c(2,2),mai=c(0.2,0.2,0.4,0.2),xaxs="i",yaxs="i")
+
+panels = c("per14_Lin1", "per14_Lin2", "per14_Lin3", "per14_Lin4")
+
+for(i in 1:4)
+{
+  colourPalette <- brewer.pal(7,"Reds")
+  
+  lineage <- panels[i]
+  mapParams <- mapCountryData( m2
+                               , nameColumnToPlot=lineage
+                               , addLegend=FALSE
+                               , catMethod=c(0,1,10,20,30,40,50,60,70,80,90,100)
+                               , colourPalette=c('white', colourPalette)
+                               , mapTitle=lineage
+                               , xlim=c(20,140)
+                               , ylim=c(-40, 80)
+                               #, mapRegion='africa'
+                               , missingCountryCol="#EEEEEE"
+                               , borderCol="darkgrey"
+                               , oceanCol=adjustcolor("#99CCFF")
+  )
+  do.call( addMapLegend
+           , c(mapParams, horizontal=FALSE, legendLabels="none", legendWidth=0.7))
+}
+
+
+
+```
+
+## Migrations
+
+###Lineage 1
+
+```{r lin1, echo=FALSE, warning=FALSE}
+
+l1t <- read.beast("lin1_snps_MCC.tree")
+
+l1 <- fortify(l1t)
+
+l1.dat <- l1[,c('node', 'parent', 'label', 'location', 'location.set', 'location.set.prob', 'posterior', 'height_median')]
+
+
+l1.dat$location.set.prob = gsub("\\{|\\}", "", l1.dat$location.set.prob)
+l1.dat$location.set = gsub("\\{|\\}", "", l1.dat$location.set)
+
+l1long = cSplit(l1.dat, splitCols = c("location.set", "location.set.prob"), sep = c(",", ","), direction = "long")
+l1long <- data.frame(l1long)
+
+#code to assign to UN region
+l1long$UN <- un[match(l1long$location.set, un$V1), 'V2']
+l1unlong <- aggregate(location.set.prob ~ UN + node, data = l1long, FUN=sum)
+
+l1un.wide = as.data.frame(dcast(l1unlong, node ~ UN))
+l1un.wide[is.na(l1un.wide)] <- 0
+
+l1un.wide$max <- apply(l1un.wide[2:length(l1un.wide)],1,max,na.rm=TRUE)
+#un.wide$maj <- apply(un.wide[2:length(un.wide)],1,which.max)
+
+l1un.wide$major <- colnames(l1un.wide[2:(length(l1un.wide)-1)])[apply(l1un.wide[2:(length(l1un.wide)-1)],1,which.max)]
+
+l1.dat$major <- l1un.wide[match(l1.dat$node, l1un.wide$node), 'major']
+l1.dat$max <- l1un.wide[match(l1.dat$node, l1un.wide$node), 'max']
+
+#write.table(l1.dat, file="C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/161025_lin1_migrations.txt", append=FALSE, quote=FALSE, sep="\t", eol="\n", na="na", row.names=FALSE, col.names=TRUE, qmethod="double")
+
+#Transfer the file above to server and use ipython to rearrange data into another format.
+
+d2 <- read.table("161025_potentialLin1Migrations.txt", header=F, sep="\t", na.strings=c("na","NA"))
+names(d2) <- c('node','parent','node_co','parent_co','co_mig','node_un','parent_un','un_mig','node_med','parent_med','node_posterior','parent_posterior')  
+
+
+#scale factor for lineage 1: 133534.8
+
+d2mod <- d2[!is.na(d2[,'node_med']),]
+d2mod <- d2mod[!is.na(d2mod[,'parent_med']),]
+d2mod$node_med <- d2mod$node_med * 133534.8
+d2mod$parent_med <- d2mod$parent_med * 133534.8
+
+
+
+rr <- range(d2mod[,c('node_med', 'parent_med')])
+bb <- seq(floor(rr[1]),ceiling(rr[2]))
+mm <- apply(d2mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+
+
+cl1 <- apply(d2mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+L1 <- apply(cl1,1,sum)
+cl1un <- apply(d2mod[d2mod$un_mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+L1un <- apply(cl1un,1,sum)
+cl1co <- apply(d2mod[d2mod$co_mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+L1co <- apply(cl1co,1,sum)
+
+lin1 <- cbind(data.frame(bb), data.frame(L1), data.frame(L1co), data.frame(L1un))
+lin1.m <- melt(lin1, id.vars="bb")
+
+p1 <- ggplot(lin1.m) + geom_line(aes(bb, value, colour=variable)) + theme(legend.position=c(.75,.75), legend.title=element_blank()) + xlab("") + ylab("Number") + scale_color_manual(values=c("red", "green", "blue"))
+
+
+###BSP
+
+l1.bsp <- read.table("lin1_BSP.data", skip=1, header=T)
+
+l1.bsp$TimeScaled <- l1.bsp$Time * 133534.8
+
+p3 <- ggplot(l1.bsp) + geom_line(aes(TimeScaled, Mean), colour="black") + geom_line(aes(TimeScaled, Median), colour="purple") + geom_line(aes(TimeScaled, Upper), colour="gray") + geom_line(aes(TimeScaled, Lower), colour="gray") + xlab("Years Before Present") + ylab("Eff Pop Size")
+
+
+p2 <- ggplot(lin1) + geom_line(aes(bb, L1co/L1), colour = "green") + geom_line(aes(bb, L1un/L1), colour = "blue") + theme(legend.position = "none") + xlab("") + ylab("Mig/Possible")
+
+
+plot_grid(
+  p1 + xlim(0,2500),
+  p2 + xlim(0,2500),
+  p3 + xlim(0,2500),
+  ncol=1, align = "h"
+)
+
+```
+
+###Lineage 2
+
+```{r lin2, echo=FALSE, warning=FALSE}
+l2t <- read.beast("lin2_snps_MCC.tree")
+
+l2 <- fortify(l2t)
+
+l2.dat <- l2[,c('node', 'parent', 'label', 'location', 'location.set', 'location.set.prob', 'posterior', 'height_median')]
+
+
+l2.dat$location.set.prob = gsub("\\{|\\}", "", l2.dat$location.set.prob)
+l2.dat$location.set = gsub("\\{|\\}", "", l2.dat$location.set)
+
+l2long = cSplit(l2.dat, splitCols = c("location.set", "location.set.prob"), sep = c(",", ","), direction = "long")
+l2long <- data.frame(l2long)
+
+#code to assign to UN region
+l2long$UN <- un[match(l2long$location.set, un$V1), 'V2']
+l2unlong <- aggregate(location.set.prob ~ UN + node, data = l2long, FUN=sum)
+
+l2un.wide = as.data.frame(dcast(l2unlong, node ~ UN))
+l2un.wide[is.na(l2un.wide)] <- 0
+
+l2un.wide$max <- apply(l2un.wide[2:length(l2un.wide)],1,max,na.rm=TRUE)
+#un.wide$maj <- apply(un.wide[2:length(un.wide)],1,which.max)
+
+l2un.wide$major <- colnames(l2un.wide[2:(length(l2un.wide)-1)])[apply(l2un.wide[2:(length(l2un.wide)-1)],1,which.max)]
+
+l2.dat$major <- l2un.wide[match(l2.dat$node, l2un.wide$node), 'major']
+l2.dat$max <- l2un.wide[match(l2.dat$node, l2un.wide$node), 'max']
+
+#write.table(l2.dat, file="", append=FALSE, quote=FALSE, sep="\t", eol="\n", na="na", row.names=FALSE, col.names=TRUE, qmethod="double")
+
+#Transfer the file above to server and use ipython to rearrange data into another format.
+
+d2 <- read.table("161026_potentialLin2Migrations.txt", header=F, sep="\t", na.strings=c("na","NA"))
+names(d2) <- c('node','parent','node_co','parent_co','co_mig','node_un','parent_un','un_mig','node_med','parent_med','node_posterior','parent_posterior')  
+
+
+#scale factor for lineage 2: 129142.2
+
+d2mod <- d2[!is.na(d2[,'node_med']),]
+d2mod <- d2mod[!is.na(d2mod[,'parent_med']),]
+d2mod$node_med <- d2mod$node_med * 129142.2
+d2mod$parent_med <- d2mod$parent_med * 129142.2
+
+
+
+rr <- range(d2mod[,c('node_med', 'parent_med')])
+bb <- seq(floor(rr[1]),ceiling(rr[2]))
+mm <- apply(d2mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+
+
+cl2 <- apply(d2mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l2 <- apply(cl2,1,sum)
+cl2un <- apply(d2mod[d2mod$un_mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l2un <- apply(cl2un,1,sum)
+cl2co <- apply(d2mod[d2mod$co_mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l2co <- apply(cl2co,1,sum)
+
+lin2 <- cbind(data.frame(bb), data.frame(l2), data.frame(l2co), data.frame(l2un))
+lin2.m <- melt(lin2, id.vars="bb")
+
+p1 <- ggplot(lin2.m) + geom_line(aes(bb, value, colour=variable)) + theme(legend.position=c(.75,.75), legend.title=element_blank()) + xlab("") + ylab("Number") + scale_colour_manual(values=c("red", "green", "blue"))
+
+###BSP
+
+l2.bsp <- read.table("lin2_BSP.data", skip=1, header=T)
+
+l2.bsp$TimeScaled <- l2.bsp$Time * 129142.2
+
+p3 <- ggplot(l2.bsp) + geom_line(aes(TimeScaled, Mean), colour="black") + geom_line(aes(TimeScaled, Median), colour="purple") + geom_line(aes(TimeScaled, Upper), colour="gray") + geom_line(aes(TimeScaled, Lower), colour="gray") + xlab("Years Before Present") + ylab("Eff Pop Size")
+
+
+p2 <- ggplot(lin2) + geom_line(aes(bb, l2co/l2), colour = "green") + geom_line(aes(bb, l2un/l2), colour = "blue") + theme(legend.position = "none") + xlab("") + ylab("Mig/Possible")
+
+
+plot_grid(
+  p1 + xlim(0,2100),
+  p2 + xlim(0,2100),
+  p3 + xlim(0,2100),
+  ncol=1, align = "h"
+)
+
+```
+
+###Lineage 3
+
+```{r lin3, echo=FALSE, warning=FALSE}
+l3t <- read.beast("lin3_snps_MCC.tree")
+
+l3 <- fortify(l3t)
+
+l3.dat <- l3[,c('node', 'parent', 'label', 'location', 'location.set', 'location.set.prob', 'posterior', 'height_median')]
+
+
+l3.dat$location.set.prob = gsub("\\{|\\}", "", l3.dat$location.set.prob)
+l3.dat$location.set = gsub("\\{|\\}", "", l3.dat$location.set)
+
+l3long = cSplit(l3.dat, splitCols = c("location.set", "location.set.prob"), sep = c(",", ","), direction = "long")
+l3long <- data.frame(l3long)
+
+#code to assign to UN region
+l3long$UN <- un[match(l3long$location.set, un$V1), 'V2']
+l3unlong <- aggregate(location.set.prob ~ UN + node, data = l3long, FUN=sum)
+
+l3un.wide = as.data.frame(dcast(l3unlong, node ~ UN))
+l3un.wide[is.na(l3un.wide)] <- 0
+
+l3un.wide$max <- apply(l3un.wide[2:length(l3un.wide)],1,max,na.rm=TRUE)
+#un.wide$maj <- apply(un.wide[2:length(un.wide)],1,which.max)
+
+l3un.wide$major <- colnames(l3un.wide[2:(length(l3un.wide)-1)])[apply(l3un.wide[2:(length(l3un.wide)-1)],1,which.max)]
+
+l3.dat$major <- l3un.wide[match(l3.dat$node, l3un.wide$node), 'major']
+l3.dat$max <- l3un.wide[match(l3.dat$node, l3un.wide$node), 'max']
+
+#write.table(l3.dat, file="C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/161026_lin3_migrations.txt", append=FALSE, quote=FALSE, sep="\t", eol="\n", na="na", row.names=FALSE, col.names=TRUE, qmethod="double")
+
+#Transfer the file above to server and use ipython to rearrange data into another format.
+
+d3 <- read.table("161026_potentiallin3Migrations.txt", header=F, sep="\t", na.strings=c("na","NA"))
+names(d3) <- c('node','parent','node_co','parent_co','co_mig','node_un','parent_un','un_mig','node_med','parent_med','node_posterior','parent_posterior')  
+
+
+#scale factor for lineage 3: 85731.8
+
+d3mod <- d3[!is.na(d3[,'node_med']),]
+d3mod <- d3mod[!is.na(d3mod[,'parent_med']),]
+d3mod$node_med <- d3mod$node_med * 85731.8
+d3mod$parent_med <- d3mod$parent_med * 85731.8
+
+
+
+rr <- range(d3mod[,c('node_med', 'parent_med')])
+bb <- seq(floor(rr[1]),ceiling(rr[2]))
+mm <- apply(d3mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+
+
+cl3 <- apply(d3mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l3 <- apply(cl3,1,sum)
+cl3un <- apply(d3mod[d3mod$un_mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l3un <- apply(cl3un,1,sum)
+cl3co <- apply(d3mod[d3mod$co_mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l3co <- apply(cl3co,1,sum)
+
+lin3 <- cbind(data.frame(bb), data.frame(l3), data.frame(l3co), data.frame(l3un))
+lin3.m <- melt(lin3, id.vars="bb")
+
+p1 <- ggplot(lin3.m) + geom_line(aes(bb, value, colour=variable)) + theme(legend.position=c(.75,.75), legend.title=element_blank()) + xlab("") + ylab("Number") + scale_colour_manual(values=c("red", "green", "blue"))
+
+
+###BSP
+
+l3.bsp <- read.table("lin3_BSP.data", skip=1, header=T)
+
+l3.bsp$TimeScaled <- l3.bsp$Time * 85731.8
+
+p3 <- ggplot(l3.bsp) + geom_line(aes(TimeScaled, Mean), colour="black") + geom_line(aes(TimeScaled, Median), colour="purple") + geom_line(aes(TimeScaled, Upper), colour="gray") + geom_line(aes(TimeScaled, Lower), colour="gray") + xlab("Years Before Present") + ylab("Eff Pop Size")
+
+
+p2 <- ggplot(lin3) + geom_line(aes(bb, l3co/l3), colour = "green") + geom_line(aes(bb, l3un/l3), colour = "blue") + theme(legend.position = "none") + xlab("") + ylab("Mig/Possible")
+
+
+plot_grid(
+  p1 + xlim(0,1600),
+  p2 + xlim(0,1600),
+  p3 + xlim(0,1600),
+  ncol=1, align = "h"
+)
+
+```
+
+###Lineage 4
+
+```{r lin4, echo=FALSE, warning=FALSE}
+l4t <- read.beast("lin4_snps_MCC.tree")
+
+l4 <- fortify(l4t)
+
+l4.dat <- l4[,c('node', 'parent', 'label', 'location', 'location.set', 'location.set.prob', 'posterior', 'height_median')]
+
+
+l4.dat$location.set.prob = gsub("\\{|\\}", "", l4.dat$location.set.prob)
+l4.dat$location.set = gsub("\\{|\\}", "", l4.dat$location.set)
+
+l4long = cSplit(l4.dat, splitCols = c("location.set", "location.set.prob"), sep = c(",", ","), direction = "long")
+l4long <- data.frame(l4long)
+
+#code to assign to UN region
+l4long$UN <- un[match(l4long$location.set, un$V1), 'V2']
+l4unlong <- aggregate(location.set.prob ~ UN + node, data = l4long, FUN=sum)
+
+l4un.wide = as.data.frame(dcast(l4unlong, node ~ UN))
+l4un.wide[is.na(l4un.wide)] <- 0
+
+l4un.wide$max <- apply(l4un.wide[2:length(l4un.wide)],1,max,na.rm=TRUE)
+#un.wide$maj <- apply(un.wide[2:length(un.wide)],1,which.max)
+
+l4un.wide$major <- colnames(l4un.wide[2:(length(l4un.wide)-1)])[apply(l4un.wide[2:(length(l4un.wide)-1)],1,which.max)]
+
+l4.dat$major <- l4un.wide[match(l4.dat$node, l4un.wide$node), 'major']
+l4.dat$max <- l4un.wide[match(l4.dat$node, l4un.wide$node), 'max']
+
+#write.table(l4.dat, file="C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/161026_lin4_migrations.txt", append=FALSE, quote=FALSE, sep="\t", eol="\n", na="na", row.names=FALSE, col.names=TRUE, qmethod="double")
+
+#Transfer the file above to server and use ipython to rearrange data into another format.
+
+d4 <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/161026_potentiallin4Migrations.txt", header=F, sep="\t", na.strings=c("na","NA"))
+names(d4) <- c('node','parent','node_co','parent_co','co_mig','node_un','parent_un','un_mig','node_med','parent_med','node_posterior','parent_posterior')  
+
+
+#scale factor for lineage 3: 142304.5
+
+d4mod <- d4[!is.na(d4[,'node_med']),]
+d4mod <- d4mod[!is.na(d4mod[,'parent_med']),]
+d4mod$node_med <- d4mod$node_med * 142304.5
+d4mod$parent_med <- d4mod$parent_med * 142304.5
+
+
+
+rr <- range(d4mod[,c('node_med', 'parent_med')])
+bb <- seq(floor(rr[1]),ceiling(rr[2]))
+mm <- apply(d4mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+
+
+cl4 <- apply(d4mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l4 <- apply(cl4,1,sum)
+cl4un <- apply(d4mod[d4mod$un_mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l4un <- apply(cl4un,1,sum)
+cl4co <- apply(d4mod[d4mod$co_mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l4co <- apply(cl4co,1,sum)
+
+lin4 <- cbind(data.frame(bb), data.frame(l4), data.frame(l4co), data.frame(l4un))
+lin4.m <- melt(lin4, id.vars="bb")
+
+p1 <- ggplot(lin4.m) + geom_line(aes(bb, value, colour=variable)) + theme(legend.position=c(.75,.75), legend.title=element_blank()) + xlab("") + ylab("Number") + scale_colour_manual(values=c("red", "green", "blue"))
+
+
+###BSP
+
+l4.bsp <- read.table("lin4_BSP.data", skip=1, header=T)
+
+l4.bsp$TimeScaled <- l4.bsp$Time * 142304.5
+
+p3 <- ggplot(l4.bsp) + geom_line(aes(TimeScaled, Mean), colour="black") + geom_line(aes(TimeScaled, Median), colour="purple") + geom_line(aes(TimeScaled, Upper), colour="gray") + geom_line(aes(TimeScaled, Lower), colour="gray") + xlab("Years Before Present") + ylab("Eff Pop Size")
+
+
+p2 <- ggplot(lin4) + geom_line(aes(bb, l4co/l4), colour = "green") + geom_line(aes(bb, l4un/l4), colour = "blue") + theme(legend.position = "none") + xlab("") + ylab("Mig/Possible")
+
+
+plot_grid(
+  p1 + xlim(0,2000),
+  p2 + xlim(0,2000),
+  p3 + xlim(0,2000),
+  ncol=1, align = "h"
+)
+
+```
+
+
+##Dadi Likelihood Surface Plots
+
+```{r dadi, echo=FALSE, warning=FALSE}
+
+myPalette <- colorRampPalette((brewer.pal(9, "YlOrRd")))
+
+
+ param_grid_dadi <- read.table("lin1_likelihood_grid_expansion.txt", header=TRUE)
+ interpdf <-interp2xyz(interp(x=param_grid_dadi$nu, y=param_grid_dadi$T, z=param_grid_dadi$LL, duplicate="mean"), data.frame=TRUE)
+ colnames(interpdf) <- c("vB", "t", "LL")
+ l1.d <- interpdf %>%
+ filter(!is.na(LL)) %>%
+ tbl_df() %>%
+ ggplot(aes(x = vB, y = t, z = LL, fill = LL)) + 
+ geom_tile() + 
+ stat_contour(colour = "white", alpha=0.25, bins = 300, na.rm=TRUE) + 
+ scale_fill_gradientn(colours= myPalette(9), breaks=unname(quantile(param_grid_dadi$LL)), values=rescale(unname(quantile(param_grid_dadi$LL))), guide="legend") +
+ #scale_y_continuous(limits=c(0, 10)) +
+ #scale_x_continuous(limits=c(0, 200)) +
+ theme_bw() +
+ theme(text = element_text(size=20),
+       legend.text = element_text(size=18),
+       axis.text.x = element_text(size = 18),
+       axis.text.y = element_text(size = 18),
+       panel.background=element_blank(),
+       panel.grid.major= element_blank(),
+       legend.position="none")
+
+ param_grid_dadi <- read.table("lin2_likelihood_grid_expansion.txt", header=TRUE)
+ interpdf <-interp2xyz(interp(x=param_grid_dadi$nu, y=param_grid_dadi$T, z=param_grid_dadi$LL, duplicate="mean"), data.frame=TRUE)
+ colnames(interpdf) <- c("vB", "t", "LL")
+ l2.d <- interpdf %>%
+ filter(!is.na(LL)) %>%
+ tbl_df() %>%
+ ggplot(aes(x = vB, y = t, z = LL, fill = LL)) + 
+ geom_tile() + 
+ stat_contour(colour = "white", alpha=0.25, bins = 300, na.rm=TRUE) + 
+ scale_fill_gradientn(colours= myPalette(9), breaks=unname(quantile(param_grid_dadi$LL)), values=rescale(unname(quantile(param_grid_dadi$LL))), guide="legend") +
+ #scale_y_continuous(limits=c(0, 10)) +
+ #scale_x_continuous(limits=c(0, 200)) +
+ theme_bw() +
+ theme(text = element_text(size=20),
+       legend.text = element_text(size=18),
+       axis.text.x = element_text(size = 18),
+       axis.text.y = element_text(size = 18),
+       panel.background=element_blank(),
+       panel.grid.major= element_blank(),
+       legend.position="none")
+ 
+ param_grid_dadi <- read.table("lin3_likelihood_grid_expansion.txt", header=TRUE)
+ interpdf <-interp2xyz(interp(x=param_grid_dadi$nu, y=param_grid_dadi$T, z=param_grid_dadi$LL, duplicate="mean"), data.frame=TRUE)
+ colnames(interpdf) <- c("vB", "t", "LL")
+ l3.d <- interpdf %>%
+ filter(!is.na(LL)) %>%
+ tbl_df() %>%
+ ggplot(aes(x = vB, y = t, z = LL, fill = LL)) + 
+ geom_tile() + 
+ stat_contour(colour = "white", alpha=0.25, bins = 300, na.rm=TRUE) + 
+ scale_fill_gradientn(colours= myPalette(9), breaks=unname(quantile(param_grid_dadi$LL)), values=rescale(unname(quantile(param_grid_dadi$LL))), guide="legend") +
+ #scale_y_continuous(limits=c(0, 10)) +
+ #scale_x_continuous(limits=c(0, 200)) +
+ theme_bw() +
+ theme(text = element_text(size=20),
+       legend.text = element_text(size=18),
+       axis.text.x = element_text(size = 18),
+       axis.text.y = element_text(size = 18),
+       panel.background=element_blank(),
+       panel.grid.major= element_blank(),
+       legend.position="none")
+ 
+ param_grid_dadi <- read.table("lin4_likelihood_grid_expansion.txt", header=TRUE)
+ interpdf <-interp2xyz(interp(x=param_grid_dadi$nu, y=param_grid_dadi$T, z=param_grid_dadi$LL, duplicate="mean"), data.frame=TRUE)
+ colnames(interpdf) <- c("vB", "t", "LL")
+ l4.d <- interpdf %>%
+ filter(!is.na(LL)) %>%
+ tbl_df() %>%
+ ggplot(aes(x = vB, y = t, z = LL, fill = LL)) + 
+ geom_tile() + 
+ stat_contour(colour = "white", alpha=0.25, bins = 300, na.rm=TRUE) + 
+ scale_fill_gradientn(colours= myPalette(9), breaks=unname(quantile(param_grid_dadi$LL)), values=rescale(unname(quantile(param_grid_dadi$LL))), guide="legend") +
+ #scale_y_continuous(limits=c(0, 10)) +
+ #scale_x_continuous(limits=c(0, 200)) +
+ theme_bw() +
+ theme(text = element_text(size=20),
+       legend.text = element_text(size=18),
+       axis.text.x = element_text(size = 18),
+       axis.text.y = element_text(size = 18),
+       panel.background=element_blank(),
+       panel.grid.major= element_blank(),
+       legend.position="none")
+
+
+ param_grid_dadi <- read.table("lin5_likelihood_grid_expansion.txt", header=TRUE)
+ interpdf <-interp2xyz(interp(x=param_grid_dadi$nu, y=param_grid_dadi$T, z=param_grid_dadi$LL, duplicate="mean"), data.frame=TRUE)
+ colnames(interpdf) <- c("vB", "t", "LL")
+ l5.d <- interpdf %>%
+ filter(!is.na(LL)) %>%
+ tbl_df() %>%
+ ggplot(aes(x = vB, y = t, z = LL, fill = LL)) + 
+ geom_tile() + 
+ stat_contour(colour = "white", alpha=0.25, bins = 300, na.rm=TRUE) + 
+ scale_fill_gradientn(colours= myPalette(9), breaks=unname(quantile(param_grid_dadi$LL, na.rm=TRUE)), values=rescale(unname(quantile(param_grid_dadi$LL, na.rm=TRUE))), guide="legend") +
+ #scale_y_continuous(limits=c(0, 10)) +
+ #scale_x_continuous(limits=c(0, 200)) +
+ theme_bw() +
+ theme(text = element_text(size=20),
+       legend.text = element_text(size=18),
+       axis.text.x = element_text(size = 18),
+       axis.text.y = element_text(size = 18),
+       panel.background=element_blank(),
+       panel.grid.major= element_blank(),
+       legend.position="none")
+ 
+ 
+  param_grid_dadi <- read.table("lin6_likelihood_grid_expansion.txt", header=TRUE)
+ interpdf <-interp2xyz(interp(x=param_grid_dadi$nu, y=param_grid_dadi$T, z=param_grid_dadi$LL, duplicate="mean"), data.frame=TRUE)
+ colnames(interpdf) <- c("vB", "t", "LL")
+ l6.d <- interpdf %>%
+ filter(!is.na(LL)) %>%
+ tbl_df() %>%
+ ggplot(aes(x = vB, y = t, z = LL, fill = LL)) + 
+ geom_tile() + 
+ stat_contour(colour = "white", alpha=0.25, bins = 300, na.rm=TRUE) + 
+ scale_fill_gradientn(colours= myPalette(9), breaks=unname(quantile(param_grid_dadi$LL, na.rm=TRUE)), values=rescale(unname(quantile(param_grid_dadi$LL, na.rm=TRUE))), guide="legend") +
+ #scale_y_continuous(limits=c(0, 10)) +
+ #scale_x_continuous(limits=c(0, 200)) +
+ theme_bw() +
+ theme(text = element_text(size=20),
+       legend.text = element_text(size=18),
+       axis.text.x = element_text(size = 18),
+       axis.text.y = element_text(size = 18),
+       panel.background=element_blank(),
+       panel.grid.major= element_blank(),
+       legend.position="none")
+ 
+  param_grid_dadi <- read.table("lin7_likelihood_grid_expansion.txt", header=TRUE)
+ interpdf <-interp2xyz(interp(x=param_grid_dadi$nu, y=param_grid_dadi$T, z=param_grid_dadi$LL, duplicate="mean"), data.frame=TRUE)
+ colnames(interpdf) <- c("vB", "t", "LL")
+ l7.d <- interpdf %>%
+ filter(!is.na(LL)) %>%
+ tbl_df() %>%
+ ggplot(aes(x = vB, y = t, z = LL, fill = LL)) + 
+ geom_tile() + 
+ stat_contour(colour = "white", alpha=0.25, bins = 100, na.rm=TRUE) + 
+ scale_fill_gradientn(colours= myPalette(9), breaks=unname(quantile(param_grid_dadi$LL, na.rm=TRUE)), values=rescale(unname(quantile(param_grid_dadi$LL, na.rm=TRUE))), guide="legend") +
+ #scale_y_continuous(limits=c(0, 10)) +
+ #scale_x_continuous(limits=c(0, 200)) +
+ theme_bw() +
+ theme(text = element_text(size=20),
+       legend.text = element_text(size=18),
+       axis.text.x = element_text(size = 18),
+       axis.text.y = element_text(size = 18),
+       panel.background=element_blank(),
+       panel.grid.major= element_blank(),
+       legend.position="none")
+
+plot_grid(l1.d, l2.d, l3.d, l4.d, l5.d, l6.d, l7.d, labels = c("L1", "L2", "L3", "L4", "L5", "L6", "L7"), ncol=2)
+
+
