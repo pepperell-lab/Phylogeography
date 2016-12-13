@@ -1,0 +1,921 @@
+---
+title: "Demography of M.tb Lineages"
+author: "Mary O'Neill"
+date: "November 28, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE)
+require(ggplot2)
+require(ape)
+#source("https://bioconductor.org/biocLite.R")
+#biocLite("ggtree")
+require("ggtree")
+require(phytools)
+require(phangorn)
+require(cowplot)
+require(rworldmap)
+require(reshape2)
+require(RColorBrewer)
+require(data.table)
+require(splitstackshape)
+library(viridis)
+library(colorRamps)
+library(scales)
+require(akima)
+require(dplyr)
+require(ggplot2)
+
+opts_knit$set(root.dir = "C://Users/Mary/PepLab/data/Phylogeography/Phylo_Figures_Data/")         
+setwd("C://Users/Mary/PepLab/data/Phylogeography/Phylo_Figures_Data/")
+```
+
+## Comparison of BSP from country and UN lineage specific analyses
+
+The lineage specific country analyses were done back in February from individual lineage SNP alignments with the rate fixed to 1. The lineage specific UN region analyses were done in November from the global SNP alignment, fixing the rate to 1 but also accounting for invariant sites. To explore whether this effected the BSP results I will plot them together.
+
+```{r bsp, echo=FALSE, warning=FALSE}
+l1.co.bsp <- read.table("lin1_BSP.data", skip=1, header=T)
+l2.co.bsp <- read.table("lin2_BSP.data", skip=1, header=T)
+l3.co.bsp <- read.table("lin3_BSP.data", skip=1, header=T)
+l4.co.bsp <- read.table("lin4_BSP.data", skip=1, header=T)
+
+l1.un.bsp <- read.table("lin1_UN_BSP.data", skip=1, header=T)
+l2.un.bsp <- read.table("lin2_UN_BSP.data", skip=1, header=T)
+l3.un.bsp <- read.table("lin3_UN_BSP.data", skip=1, header=T)
+l4.un.bsp <- read.table("lin4_UN_BSP.data", skip=1, header=T)
+l5.un.bsp <- read.table("lin5_UN_BSP.data", skip=1, header=T)
+l6.un.bsp <- read.table("lin6_UN_BSP.data", skip=1, header=T)
+l7.un.bsp <- read.table("lin7_UN_BSP.data", skip=1, header=T)
+
+
+#######Lineage 1
+
+#Scale the BSP's to reflect a MRCA for lin1 of 2353
+X1 = 2353/max(l1.co.bsp$Time)
+#l1.co.bsp$TimeScaled <- l1.co.bsp$Time * X
+l1.co.scaled <- l1.co.bsp * X1 / 1.3
+
+Y1 = 2352/max(l1.un.bsp$Time)
+#l1.un.bsp$TimeScaled <- l1.un.bsp$Time * Y
+l1.un.scaled <- l1.un.bsp * Y1 / 1.3
+
+
+#Combine the BSPs for lineage 1
+l1.bsp <- rbind(data.frame(analysis="co", l1.co.scaled), 
+                data.frame(analysis="un", l1.un.scaled))
+
+#Plot
+l1.bsp.p <- ggplot(l1.bsp) + geom_line(aes(Time, Mean, group=analysis, colour=analysis)) + geom_ribbon(aes(x=Time, ymax=Upper, ymin=Lower, group=analysis, colour=analysis, fill=analysis), alpha=.2) + scale_color_manual(values = c("gray", "blue")) + scale_fill_manual(values = c("gray", "blue")) + xlab("Years Before Present") + ylab("Eff Pop Size") + scale_x_reverse(limits = c(2000, 0)) + scale_y_log10(limits=c(10,1e6)) + geom_hline(yintercept=7571.8, linetype="dashed", color = "red") + ggtitle("Lineage 1")
+
+
+#######Lineage 2
+
+#Scale the BSP's to reflect a MRCA for lin2 of 2021
+X2 = 2021/max(l2.co.bsp$Time)
+#l2.co.bsp$TimeScaled <- l2.co.bsp$Time * X
+l2.co.scaled <- l2.co.bsp * X2 / 1.3
+
+Y2 = 2021/max(l2.un.bsp$Time)
+#l2.un.bsp$TimeScaled <- l2.un.bsp$Time * Y
+l2.un.scaled <- l2.un.bsp * Y2 / 1.3
+
+
+#Combine the BSPs for lineage 1
+l2.bsp <- rbind(data.frame(analysis="co", l2.co.scaled), 
+                data.frame(analysis="un", l2.un.scaled))
+
+#Plot
+l2.bsp.p <- ggplot(l2.bsp) + geom_line(aes(Time, Mean, group=analysis, colour=analysis)) + geom_ribbon(aes(x=Time, ymax=Upper, ymin=Lower, group=analysis, colour=analysis, fill=analysis), alpha=.2) + scale_color_manual(values = c("gray", "blue")) + scale_fill_manual(values = c("gray", "blue")) + xlab("Years Before Present") + ylab("Eff Pop Size") + scale_x_reverse(limits = c(2000, 0)) + scale_y_log10(limits=c(10,1e6)) + geom_hline(yintercept=4485.66, linetype="dashed", color = "red") + ggtitle("Lineage 2")
+
+
+#######Lineage 3
+
+#Scale the BSP's to reflect a MRCA for lin3 of 1482
+X3 = 1482/max(l3.co.bsp$Time)
+#l3.co.bsp$TimeScaled <- l3.co.bsp$Time * X
+l3.co.scaled <- l3.co.bsp * X3 / 1.3
+
+Y3 = 1482/max(l3.un.bsp$Time)
+#l3.un.bsp$TimeScaled <- l3.un.bsp$Time * Y
+l3.un.scaled <- l3.un.bsp * Y3 / 1.3
+
+
+#Combine the BSPs for lineage 1
+l3.bsp <- rbind(data.frame(analysis="co", l3.co.scaled), 
+                data.frame(analysis="un", l3.un.scaled))
+
+#Plot
+l3.bsp.p <- ggplot(l3.bsp) + geom_line(aes(Time, Mean, group=analysis, colour=analysis)) + geom_ribbon(aes(x=Time, ymax=Upper, ymin=Lower, group=analysis, colour=analysis, fill=analysis), alpha=.2) + scale_color_manual(values = c("gray", "blue")) + scale_fill_manual(values = c("gray", "blue")) + xlab("Years Before Present") + ylab("Eff Pop Size") + scale_x_reverse(limits = c(2000, 0)) + scale_y_log10(limits=c(10,1e6)) + geom_hline(yintercept=3987.45, linetype="dashed", color = "red") + ggtitle("Lineage 3")
+
+
+#######Lineage 4
+
+#Scale the BSP's to reflect a MRCA for lin4 of 1918
+X4 = 1918/max(l4.co.bsp$Time)
+#l4.co.bsp$TimeScaled <- l4.co.bsp$Time * X
+l4.co.scaled <- l4.co.bsp * X4 / 1.3
+
+Y4 = 1918/max(l4.un.bsp$Time)
+#l4.un.bsp$TimeScaled <- l4.un.bsp$Time * Y
+l4.un.scaled <- l4.un.bsp * Y4 / 1.3
+
+
+#Combine the BSPs for lineage 1
+l4.bsp <- rbind(data.frame(analysis="co", l4.co.scaled), 
+                data.frame(analysis="un", l4.un.scaled))
+
+#Plot
+l4.bsp.p <- ggplot(l4.bsp) + geom_line(aes(Time, Mean, group=analysis, colour=analysis)) + geom_ribbon(aes(x=Time, ymax=Upper, ymin=Lower, group=analysis, colour=analysis, fill=analysis), alpha=.2) + scale_color_manual(values = c("gray", "blue")) + scale_fill_manual(values = c("gray", "blue")) + xlab("Years Before Present") + ylab("Eff Pop Size") + scale_x_reverse(limits = c(2000, 0)) + scale_y_log10(limits=c(10,1e6)) + geom_hline(yintercept=7797.08, linetype="dashed", color = "red") + ggtitle("Lineage 4")
+
+
+plot_grid(
+  l1.bsp.p,
+  l2.bsp.p,
+  l3.bsp.p,
+  l4.bsp.p,
+  ncol=2, align = "h"
+)
+
+
+#######Lineage 5
+
+#Scale the BSP's to reflect a MRCA for lin5 of 1211
+
+Y5 = 1211/max(l5.un.bsp$Time)
+#l5.un.bsp$TimeScaled <- l5.un.bsp$Time * Y
+l5.un.scaled <- l5.un.bsp * Y4 / 1.3
+
+
+#Combine the BSPs for lineage 1
+l5.bsp <- rbind(data.frame(analysis="un", l5.un.scaled))
+
+#Plot
+l5.bsp.p <- ggplot(l5.bsp) + geom_line(aes(Time, Mean, group=analysis, colour=analysis)) + geom_ribbon(aes(x=Time, ymax=Upper, ymin=Lower, group=analysis, colour=analysis, fill=analysis), alpha=.2) + scale_color_manual(values = c("blue")) + scale_fill_manual(values = c("blue")) + xlab("Years Before Present") + ylab("Eff Pop Size") + scale_x_reverse(limits = c(2000, 0)) + scale_y_log10(limits=c(10,1e6)) + geom_hline(yintercept=7797.08, linetype="dashed", color = "red") + ggtitle("Lineage 5")
+
+#######Lineage 6
+
+#Scale the BSP's to reflect a MRCA for lin5 of 1900
+
+Y6 = 1900/max(l6.un.bsp$Time)
+#l6.un.bsp$TimeScaled <- l6.un.bsp$Time * Y
+l6.un.scaled <- l6.un.bsp * Y4 / 1.3
+
+
+#Combine the BSPs for lineage 1
+l6.bsp <- rbind(data.frame(analysis="un", l6.un.scaled))
+
+#Plot
+l6.bsp.p <- ggplot(l6.bsp) + geom_line(aes(Time, Mean, group=analysis, colour=analysis)) + geom_ribbon(aes(x=Time, ymax=Upper, ymin=Lower, group=analysis, colour=analysis, fill=analysis), alpha=.2) + scale_color_manual(values = c("blue")) + scale_fill_manual(values = c("blue")) + xlab("Years Before Present") + ylab("Eff Pop Size") + scale_x_reverse(limits = c(2000, 0)) + scale_y_log10(limits=c(10,1e6)) + geom_hline(yintercept=7797.08, linetype="dashed", color = "red") + ggtitle("Lineage 6")
+
+#######Lineage 7
+
+#Scale the BSP's to reflect a MRCA for lin7 of 687
+
+Y7 = 687/max(l7.un.bsp$Time)
+#l7.un.bsp$TimeScaled <- l7.un.bsp$Time * Y
+l7.un.scaled <- l7.un.bsp * Y4 / 1.3
+
+
+#Combine the BSPs for lineage 1
+l7.bsp <- rbind(data.frame(analysis="un", l7.un.scaled))
+
+#Plot
+l7.bsp.p <- ggplot(l7.bsp) + geom_line(aes(Time, Mean, group=analysis, colour=analysis)) + geom_ribbon(aes(x=Time, ymax=Upper, ymin=Lower, group=analysis, colour=analysis, fill=analysis), alpha=.2) + scale_color_manual(values = c("blue")) + scale_fill_manual(values = c("blue")) + xlab("Years Before Present") + ylab("Eff Pop Size") + scale_x_reverse(limits = c(2000, 0)) + scale_y_log10(limits=c(10,1e6)) + geom_hline(yintercept=7797.08, linetype="dashed", color = "red") + ggtitle("Lineage 7")
+
+
+plot_grid(
+  l1.bsp.p,
+  l2.bsp.p,
+  l3.bsp.p,
+  l4.bsp.p,
+  l5.bsp.p,
+  l6.bsp.p,
+  l7.bsp.p,
+  ncol=2, align = "h"
+)
+
+```
+
+The BSPs generated in the two analyses are in strong agreement. I fit the time scales to relect the timings from the (corrected) TMRCA timings from the original full analysis. Note that the two analyses for which ESS values were low (L2, L4) are still running with longer chain lengths.
+
+###Dadi Results
+
+```{r dadi-L1, echo=FALSE, warning=FALSE}
+
+##Lineage 1
+l1.exp.pre <- read.table("C://Users/Mary/PepLab/data/Phylogeography/dadi/upperbound_1000_100/lin1/likelihood_grid_expansion.txt", header=TRUE)
+l1.exp <-interp2xyz(interp(x=l1.exp.pre$nu, y=l1.exp.pre$T, z=l1.exp.pre$LL, duplicate="mean"), data.frame=TRUE)
+colnames(l1.exp) <- c("vB", "t", "LL")
+l1.exp <- tbl_df(l1.exp)
+l1.exp <- filter(l1.exp, !is.na(LL))
+
+l1.gro.pre <- read.table("C://Users/Mary/PepLab/data/Phylogeography/dadi/upperbound_1000_100/lin1/likelihood_grid_growth.txt", header=TRUE)
+l1.gro <-interp2xyz(interp(x=l1.gro.pre$nu, y=l1.gro.pre$T, z=l1.gro.pre$LL, duplicate="mean"), data.frame=TRUE)
+colnames(l1.gro) <- c("vB", "t", "LL")
+l1.gro <- tbl_df(l1.gro)
+l1.gro <- filter(l1.gro, !is.na(LL))
+
+l1.lim <- c(min(l1.exp$LL), max(l1.exp$LL), min(l1.gro$LL), max(l1.gro$LL))
+
+l1.exp.p <- ggplot(l1.exp, aes(x = vB, y = t, z = LL, fill = LL)) + 
+  geom_tile() + 
+  stat_contour(colour = "black", alpha=0.25, bins = 300, na.rm=TRUE) + 
+  scale_fill_viridis(option = "inferno", limits = c(min(l1.lim), max(l1.lim))) +
+  #scale_y_continuous(limits=c(0, 10)) +
+  #scale_x_continuous(limits=c(0, 200)) +
+  theme_bw() +
+  ggtitle("L1 - expansion") +
+  theme(text = element_text(size=20),
+        legend.text = element_text(size=18),
+        axis.text.x = element_text(size = 18),
+        axis.text.y = element_text(size = 18),
+        panel.background=element_blank(),
+        panel.grid.major= element_blank(),
+        legend.position="none") +
+  geom_point(aes(x=66.92842, y=0.8031205), colour="red")
+
+
+l1.gro.p <- ggplot(l1.gro, aes(x = vB, y = t, z = LL, fill = LL)) + 
+  geom_tile() + 
+  stat_contour(colour = "black", alpha=0.25, bins = 300, na.rm=TRUE) + 
+  scale_fill_viridis(option = "inferno", limits = c(min(l1.lim), max(l1.lim))) +
+  #scale_y_continuous(limits=c(0, 10)) +
+  #scale_x_continuous(limits=c(0, 200)) +
+  theme_bw() +
+  ggtitle("L1 - growth") +
+  theme(text = element_text(size=20),
+        legend.text = element_text(size=18),
+        axis.text.x = element_text(size = 18),
+        axis.text.y = element_text(size = 18),
+        panel.background=element_blank(),
+        panel.grid.major= element_blank(),
+        legend.position="none") +
+  geom_point(aes(x=286.8294, y=2.030231), colour="red")
+
+plot_grid(
+  l1.exp.p,
+  l1.gro.p,
+  ncol=2, align = "h"
+)
+```
+
+```{r dadi-L2, echo=FALSE, warning=FALSE}
+
+##Lineage 2
+l2.exp.pre <- read.table("C://Users/Mary/PepLab/data/Phylogeography/dadi/upperbound_1000_100/lin2/likelihood_grid_expansion.txt", header=TRUE)
+l2.exp <-interp2xyz(interp(x=l2.exp.pre$nu, y=l2.exp.pre$T, z=l2.exp.pre$LL, duplicate="mean"), data.frame=TRUE)
+colnames(l2.exp) <- c("vB", "t", "LL")
+l2.exp <- tbl_df(l2.exp)
+l2.exp <- filter(l2.exp, !is.na(LL))
+
+l2.gro.pre <- read.table("C://Users/Mary/PepLab/data/Phylogeography/dadi/upperbound_1000_100/lin2/likelihood_grid_growth.txt", header=TRUE)
+l2.gro <-interp2xyz(interp(x=l2.gro.pre$nu, y=l2.gro.pre$T, z=l2.gro.pre$LL, duplicate="mean"), data.frame=TRUE)
+colnames(l2.gro) <- c("vB", "t", "LL")
+l2.gro <- tbl_df(l2.gro)
+l2.gro <- filter(l2.gro, !is.na(LL))
+
+l2.lim <- c(min(l2.exp$LL), max(l2.exp$LL), min(l2.gro$LL), max(l2.gro$LL))
+
+l2.exp.p <- ggplot(l2.exp, aes(x = vB, y = t, z = LL, fill = LL)) + 
+  geom_tile() + 
+  stat_contour(colour = "black", alpha=0.25, bins = 300, na.rm=TRUE) + 
+  scale_fill_viridis(option = "inferno", limits = c(min(l2.lim), max(l2.lim))) +
+  #scale_y_continuous(limits=c(0, 10)) +
+  #scale_x_continuous(limits=c(0, 200)) +
+  theme_bw() +
+  ggtitle("l2 - expansion") +
+  theme(text = element_text(size=20),
+        legend.text = element_text(size=18),
+        axis.text.x = element_text(size = 18),
+        axis.text.y = element_text(size = 18),
+        panel.background=element_blank(),
+        panel.grid.major= element_blank(),
+        legend.position="none")+
+  geom_point(aes(x=145.7558, y=0.2745687), colour="red")
+
+
+l2.gro.p <- ggplot(l2.gro, aes(x = vB, y = t, z = LL, fill = LL)) + 
+  geom_tile() + 
+  stat_contour(colour = "black", alpha=0.25, bins = 300, na.rm=TRUE) + 
+  scale_fill_viridis(option = "inferno", limits = c(min(l2.lim), max(l2.lim))) +
+  #scale_y_continuous(limits=c(0, 10)) +
+  #scale_x_continuous(limits=c(0, 200)) +
+  theme_bw() +
+  ggtitle("l2 - growth") +
+  theme(text = element_text(size=20),
+        legend.text = element_text(size=18),
+        axis.text.x = element_text(size = 18),
+        axis.text.y = element_text(size = 18),
+        panel.background=element_blank(),
+        panel.grid.major= element_blank(),
+        legend.position="none")+
+  geom_point(aes(x=538.6626, y=1.245329), colour="red")
+
+plot_grid(
+  l2.exp.p,
+  l2.gro.p,
+  ncol=2, align = "h"
+)
+
+
+```
+
+```{r dadi-L3, echo=FALSE, warning=FALSE}
+
+##Lineage 3
+l3.exp.pre <- read.table("C://Users/Mary/PepLab/data/Phylogeography/dadi/upperbound_1000_100/lin3/likelihood_grid_expansion.txt", header=TRUE)
+l3.exp <-interp2xyz(interp(x=l3.exp.pre$nu, y=l3.exp.pre$T, z=l3.exp.pre$LL, duplicate="mean"), data.frame=TRUE)
+colnames(l3.exp) <- c("vB", "t", "LL")
+l3.exp <- tbl_df(l3.exp)
+l3.exp <- filter(l3.exp, !is.na(LL))
+
+l3.gro.pre <- read.table("C://Users/Mary/PepLab/data/Phylogeography/dadi/upperbound_1000_100/lin3/likelihood_grid_growth.txt", header=TRUE)
+l3.gro <-interp2xyz(interp(x=l3.gro.pre$nu, y=l3.gro.pre$T, z=l3.gro.pre$LL, duplicate="mean"), data.frame=TRUE)
+colnames(l3.gro) <- c("vB", "t", "LL")
+l3.gro <- tbl_df(l3.gro)
+l3.gro <- filter(l3.gro, !is.na(LL))
+
+l3.lim <- c(min(l3.exp$LL), max(l3.exp$LL), min(l3.gro$LL), max(l3.gro$LL))
+
+l3.exp.p <- ggplot(l3.exp, aes(x = vB, y = t, z = LL, fill = LL)) + 
+  geom_tile() + 
+  stat_contour(colour = "black", alpha=0.25, bins = 300, na.rm=TRUE) + 
+  scale_fill_viridis(option = "inferno", limits = c(min(l3.lim), max(l3.lim))) +
+  #scale_y_continuous(limits=c(0, 10)) +
+  #scale_x_continuous(limits=c(0, 200)) +
+  theme_bw() +
+  ggtitle("l3 - expansion") +
+  theme(text = element_text(size=20),
+        legend.text = element_text(size=18),
+        axis.text.x = element_text(size = 18),
+        axis.text.y = element_text(size = 18),
+        panel.background=element_blank(),
+        panel.grid.major= element_blank(),
+        legend.position="none")+
+  geom_point(aes(x=104.157, y=2.499924), colour="red")
+
+
+l3.gro.p <- ggplot(l3.gro, aes(x = vB, y = t, z = LL, fill = LL)) + 
+  geom_tile() + 
+  stat_contour(colour = "black", alpha=0.25, bins = 20, na.rm=TRUE) + 
+  scale_fill_viridis(option = "inferno", limits = c(min(l3.lim), max(l3.lim))) +
+  #scale_y_continuous(limits=c(0, 10)) +
+  #scale_x_continuous(limits=c(0, 200)) +
+  theme_bw() +
+  ggtitle("l3 - growth") +
+  theme(text = element_text(size=20),
+        legend.text = element_text(size=18),
+        axis.text.x = element_text(size = 18),
+        axis.text.y = element_text(size = 18),
+        panel.background=element_blank(),
+        panel.grid.major= element_blank(),
+        legend.position="none")+
+  geom_point(aes(x=8499.866, y=86.36667), colour="red")
+
+plot_grid(
+  l3.exp.p,
+  l3.gro.p,
+  ncol=2, align = "h"
+)
+```
+
+```{r dadi-L4, echo=FALSE, warning=FALSE}
+
+##Lineage 4
+l4.exp.pre <- read.table("C://Users/Mary/PepLab/data/Phylogeography/dadi/upperbound_1000_100/lin4/likelihood_grid_expansion.txt", header=TRUE)
+l4.exp <-interp2xyz(interp(x=l4.exp.pre$nu, y=l4.exp.pre$T, z=l4.exp.pre$LL, duplicate="mean"), data.frame=TRUE)
+colnames(l4.exp) <- c("vB", "t", "LL")
+l4.exp <- tbl_df(l4.exp)
+l4.exp <- filter(l4.exp, !is.na(LL))
+
+l4.gro.pre <- read.table("C://Users/Mary/PepLab/data/Phylogeography/dadi/upperbound_1000_100/lin4/likelihood_grid_growth.txt", header=TRUE)
+l4.gro <-interp2xyz(interp(x=l4.gro.pre$nu, y=l4.gro.pre$T, z=l4.gro.pre$LL, duplicate="mean"), data.frame=TRUE)
+colnames(l4.gro) <- c("vB", "t", "LL")
+l4.gro <- tbl_df(l4.gro)
+l4.gro <- filter(l4.gro, !is.na(LL))
+
+l4.lim <- c(min(l4.exp$LL), max(l4.exp$LL), min(l4.gro$LL), max(l4.gro$LL))
+
+l4.exp.p <- ggplot(l4.exp, aes(x = vB, y = t, z = LL, fill = LL)) + 
+  geom_tile() + 
+  stat_contour(colour = "black", alpha=0.25, bins = 300, na.rm=TRUE) + 
+  scale_fill_viridis(option = "inferno", limits = c(min(l4.lim), max(l4.lim))) +
+  #scale_y_continuous(limits=c(0, 10)) +
+  #scale_x_continuous(limits=c(0, 200)) +
+  theme_bw() +
+  ggtitle("l4 - expansion") +
+  theme(text = element_text(size=20),
+        legend.text = element_text(size=18),
+        axis.text.x = element_text(size = 18),
+        axis.text.y = element_text(size = 18),
+        panel.background=element_blank(),
+        panel.grid.major= element_blank(),
+        legend.position="none")+
+  geom_point(aes(x=58.56261, y=0.6366894), colour="red")
+
+
+l4.gro.p <- ggplot(l4.gro, aes(x = vB, y = t, z = LL, fill = LL)) + 
+  geom_tile() + 
+  stat_contour(colour = "black", alpha=0.25, bins = 1500, na.rm=TRUE) + 
+  scale_fill_viridis(option = "inferno", limits = c(min(l4.lim), max(l4.lim))) +
+  #scale_y_continuous(limits=c(0, 10)) +
+  #scale_x_continuous(limits=c(0, 200)) +
+  theme_bw() +
+  ggtitle("l4 - growth") +
+  theme(text = element_text(size=20),
+        legend.text = element_text(size=18),
+        axis.text.x = element_text(size = 18),
+        axis.text.y = element_text(size = 18),
+        panel.background=element_blank(),
+        panel.grid.major= element_blank(),
+        legend.position="none")+
+  geom_point(aes(x=335.9563, y=3.554986), colour="red")
+
+plot_grid(
+  l4.exp.p,
+  l4.gro.p,
+  ncol=2, align = "h"
+)
+```
+
+```{r dadi-L5, echo=FALSE, warning=FALSE}
+
+##Lineage 5
+l5.exp.pre <- read.table("C://Users/Mary/PepLab/data/Phylogeography/dadi/upperbound_1000_100/lin5/likelihood_grid_expansion.txt", header=TRUE)
+l5.exp <-interp2xyz(interp(x=l5.exp.pre$nu, y=l5.exp.pre$T, z=l5.exp.pre$LL, duplicate="mean"), data.frame=TRUE)
+colnames(l5.exp) <- c("vB", "t", "LL")
+l5.exp <- tbl_df(l5.exp)
+l5.exp <- filter(l5.exp, !is.na(LL))
+
+l5.gro.pre <- read.table("C://Users/Mary/PepLab/data/Phylogeography/dadi/upperbound_1000_100/lin5/likelihood_grid_growth.txt", header=TRUE)
+l5.gro <-interp2xyz(interp(x=l5.gro.pre$nu, y=l5.gro.pre$T, z=l5.gro.pre$LL, duplicate="mean"), data.frame=TRUE)
+colnames(l5.gro) <- c("vB", "t", "LL")
+l5.gro <- tbl_df(l5.gro)
+l5.gro <- filter(l5.gro, !is.na(LL))
+
+l5.lim <- c(min(l5.exp$LL), max(l5.exp$LL), min(l5.gro$LL), max(l5.gro$LL))
+
+l5.exp.p <- ggplot(l5.exp, aes(x = vB, y = t, z = LL, fill = LL)) + 
+  geom_tile() + 
+  stat_contour(colour = "black", alpha=0.25, bins = 300, na.rm=TRUE) + 
+  scale_fill_viridis(option = "inferno", limits = c(min(l5.lim), max(l5.lim))) +
+  #scale_y_continuous(limits=c(0, 10)) +
+  #scale_x_continuous(limits=c(0, 200)) +
+  theme_bw() +
+  ggtitle("l5 - expansion") +
+  theme(text = element_text(size=20),
+        legend.text = element_text(size=18),
+        axis.text.x = element_text(size = 18),
+        axis.text.y = element_text(size = 18),
+        panel.background=element_blank(),
+        panel.grid.major= element_blank(),
+        legend.position="none")+
+  geom_point(aes(x=443.6372, y=4.937224), colour="red")
+
+
+l5.gro.p <- ggplot(l5.gro, aes(x = vB, y = t, z = LL, fill = LL)) + 
+  geom_tile() + 
+  stat_contour(colour = "black", alpha=0.25, bins = 10, na.rm=TRUE) + 
+  scale_fill_viridis(option = "inferno", limits = c(min(l5.lim), max(l5.lim))) +
+  #scale_y_continuous(limits=c(0, 10)) +
+  #scale_x_continuous(limits=c(0, 200)) +
+  theme_bw() +
+  ggtitle("l5 - growth") +
+  theme(text = element_text(size=20),
+        legend.text = element_text(size=18),
+        axis.text.x = element_text(size = 18),
+        axis.text.y = element_text(size = 18),
+        panel.background=element_blank(),
+        panel.grid.major= element_blank(),
+        legend.position="none")+
+  geom_point(aes(x=9862.081, y=7.8161), colour="red")
+
+plot_grid(
+  l5.exp.p,
+  l5.gro.p,
+  ncol=2, align = "h"
+)
+```
+
+```{r dadi-L6, echo=FALSE, warning=FALSE}
+
+##Lineage 6
+l6.exp.pre <- read.table("C://Users/Mary/PepLab/data/Phylogeography/dadi/upperbound_1000_100/lin6/likelihood_grid_expansion.txt", header=TRUE)
+l6.exp <-interp2xyz(interp(x=l6.exp.pre$nu, y=l6.exp.pre$T, z=l6.exp.pre$LL, duplicate="mean"), data.frame=TRUE)
+colnames(l6.exp) <- c("vB", "t", "LL")
+l6.exp <- tbl_df(l6.exp)
+l6.exp <- filter(l6.exp, !is.na(LL))
+
+l6.gro.pre <- read.table("C://Users/Mary/PepLab/data/Phylogeography/dadi/upperbound_1000_100/lin6/likelihood_grid_growth.txt", header=TRUE)
+l6.gro <-interp2xyz(interp(x=l6.gro.pre$nu, y=l6.gro.pre$T, z=l6.gro.pre$LL, duplicate="mean"), data.frame=TRUE)
+colnames(l6.gro) <- c("vB", "t", "LL")
+l6.gro <- tbl_df(l6.gro)
+l6.gro <- filter(l6.gro, !is.na(LL))
+
+l6.lim <- c(min(l6.exp$LL), max(l6.exp$LL), min(l6.gro$LL), max(l6.gro$LL))
+
+l6.exp.p <- ggplot(l6.exp, aes(x = vB, y = t, z = LL, fill = LL)) + 
+  geom_tile() + 
+  stat_contour(colour = "black", alpha=0.25, bins = 300, na.rm=TRUE) + 
+  scale_fill_viridis(option = "inferno", limits = c(min(l6.lim), max(l6.lim))) +
+  #scale_y_continuous(limits=c(0, 10)) +
+  #scale_x_continuous(limits=c(0, 200)) +
+  theme_bw() +
+  ggtitle("l6 - expansion") +
+  theme(text = element_text(size=20),
+        legend.text = element_text(size=18),
+        axis.text.x = element_text(size = 18),
+        axis.text.y = element_text(size = 18),
+        panel.background=element_blank(),
+        panel.grid.major= element_blank(),
+        legend.position="none")+
+  geom_point(aes(x=57.51868, y=0.9785816), colour="red")
+
+
+l6.gro.p <- ggplot(l6.gro, aes(x = vB, y = t, z = LL, fill = LL)) + 
+  geom_tile() + 
+  stat_contour(colour = "black", alpha=0.25, bins = 300, na.rm=TRUE) + 
+  scale_fill_viridis(option = "inferno", limits = c(min(l6.lim), max(l6.lim))) +
+  #scale_y_continuous(limits=c(0, 10)) +
+  #scale_x_continuous(limits=c(0, 200)) +
+  theme_bw() +
+  ggtitle("l6 - growth") +
+  theme(text = element_text(size=20),
+        legend.text = element_text(size=18),
+        axis.text.x = element_text(size = 18),
+        axis.text.y = element_text(size = 18),
+        panel.background=element_blank(),
+        panel.grid.major= element_blank(),
+        legend.position="none")+
+  geom_point(aes(x=288.9614, y=1.361122), colour="red")
+
+plot_grid(
+  l6.exp.p,
+  l6.gro.p,
+  ncol=2, align = "h"
+)
+```
+
+```{r dadi-L7, echo=FALSE, warning=FALSE}
+
+##Lineage 7
+l7.exp.pre <- read.table("C://Users/Mary/PepLab/data/Phylogeography/dadi/upperbound_1000_100/lin7/likelihood_grid_expansion.txt", header=TRUE)
+l7.exp <-interp2xyz(interp(x=l7.exp.pre$nu, y=l7.exp.pre$T, z=l7.exp.pre$LL, duplicate="mean"), data.frame=TRUE)
+colnames(l7.exp) <- c("vB", "t", "LL")
+l7.exp <- tbl_df(l7.exp)
+l7.exp <- filter(l7.exp, !is.na(LL))
+
+l7.gro.pre <- read.table("C://Users/Mary/PepLab/data/Phylogeography/dadi/upperbound_1000_100/lin7/likelihood_grid_growth.txt", header=TRUE)
+l7.gro <-interp2xyz(interp(x=l7.gro.pre$nu, y=l7.gro.pre$T, z=l7.gro.pre$LL, duplicate="mean"), data.frame=TRUE)
+colnames(l7.gro) <- c("vB", "t", "LL")
+l7.gro <- tbl_df(l7.gro)
+l7.gro <- filter(l7.gro, !is.na(LL))
+
+l7.lim <- c(min(l7.exp$LL), max(l7.exp$LL), min(l7.gro$LL), max(l7.gro$LL))
+
+l7.exp.p <- ggplot(l7.exp, aes(x = vB, y = t, z = LL, fill = LL)) + 
+  geom_tile() + 
+  stat_contour(colour = "black", alpha=0.25, bins = 300, na.rm=TRUE) + 
+  scale_fill_viridis(option = "inferno", limits = c(min(l7.lim), max(l7.lim))) +
+  #scale_y_continuous(limits=c(0, 10)) +
+  #scale_x_continuous(limits=c(0, 200)) +
+  theme_bw() +
+  ggtitle("l7 - expansion") +
+  theme(text = element_text(size=20),
+        legend.text = element_text(size=18),
+        axis.text.x = element_text(size = 18),
+        axis.text.y = element_text(size = 18),
+        panel.background=element_blank(),
+        panel.grid.major= element_blank(),
+        legend.position="none")+
+  geom_point(aes(x=18.93599, y=3.269871), colour="red")
+
+
+l7.gro.p <- ggplot(l7.gro, aes(x = vB, y = t, z = LL, fill = LL)) + 
+  geom_tile() + 
+  stat_contour(colour = "black", alpha=0.25, bins = 500, na.rm=TRUE) + 
+  scale_fill_viridis(option = "inferno", limits = c(min(l7.lim), max(l7.lim))) +
+  #scale_y_continuous(limits=c(0, 10)) +
+  #scale_x_continuous(limits=c(0, 200)) +
+  theme_bw() +
+  ggtitle("l7 - growth") +
+  theme(text = element_text(size=20),
+        legend.text = element_text(size=18),
+        axis.text.x = element_text(size = 18),
+        axis.text.y = element_text(size = 18),
+        panel.background=element_blank(),
+        panel.grid.major= element_blank(),
+        legend.position="none") +
+  geom_point(aes(x=368.665, y=91.60298), colour="red")
+
+plot_grid(
+  l7.exp.p,
+  l7.gro.p,
+  ncol=2, align = "h"
+)
+```
+
+###Tree Figure
+
+```{r trees, echo=FALSE, warning=FALSE}
+
+l1t <- read.beast("lin1_UN_MCC.tree")
+l1 <- fortify(l1t)
+l1.dat <- l1[,c('node', 'parent', 'label', 'geography', 'geography.prob', 'geography.set', 'geography.set.prob', 'posterior', 'height_median')]
+
+l1.dat$geography.set.prob = gsub("\\{|\\}", "", l1.dat$geography.set.prob)
+l1.dat$geography.set = gsub("\\{|\\}", "", l1.dat$geography.set)
+
+#subset the tips
+tre_tips <- subset(l1, isTip == TRUE, c(label, geography))
+
+#split the tips by UN
+tre_iso = split(tre_tips$label, tre_tips$geography)
+
+tre.g <- groupOTU(l1t, tre_iso)
+
+ggtree(tre.g, layout="unrooted") + geom_tippoint(aes(color=group)) 
+  #geom_text2(aes(subset = isTip, label = geography, color = group), hjust=-0.1)  
+  
+
+l2t <- read.beast("lin2_UN_MCC.tree")
+l2 <- fortify(l2t)
+l2.dat <- l2[,c('node', 'parent', 'label', 'geography', 'geography.prob', 'geography.set', 'geography.set.prob', 'posterior', 'height_median')]
+
+l2.dat$geography.set.prob = gsub("\\{|\\}", "", l2.dat$geography.set.prob)
+l2.dat$geography.set = gsub("\\{|\\}", "", l2.dat$geography.set)
+
+#subset the tips
+tre_tips <- subset(l2, isTip == TRUE, c(label, geography))
+
+#split the tips by UN
+tre_iso = split(tre_tips$label, tre_tips$geography)
+
+tre.g <- groupOTU(l2t, tre_iso)
+
+ggtree(tre.g, layout="unrooted") + geom_tippoint(aes(color=group)) 
+  #geom_text2(aes(subset = isTip, label = geography, color = group), hjust=-0.1)  
+
+```
+
+
+```{r mig_bsp}
+
+l1.un.bsp <- read.table("lin1_UN_BSP.data", skip=1, header=T)
+l2.un.bsp <- read.table("lin2_UN_BSP.data", skip=1, header=T)
+l3.un.bsp <- read.table("lin3_UN_BSP.data", skip=1, header=T)
+l4.un.bsp <- read.table("lin4_UN_BSP.data", skip=1, header=T)
+
+
+
+l1t <- read.beast("lin4_UN_MCC.tree")
+
+l1 <- fortify(l1t)
+
+l1.dat <- l1[,c('node', 'parent', 'label', 'geography', 'geography.prob', 'geography.set', 'geography.set.prob', 'posterior', 'height_median')]
+
+ggtree(l1t)
+
+#lin1
+d1 <- read.table("161111_lin1_UNMig.txt", header=F, sep="\t", na.strings=c("na","NA"))
+names(d1) <- c('node','parent','node_un','node_prob','parent_un','parent_prob','mig','node_med','parent_med','node_posterior','parent_posterior')  
+
+
+#scale factor for lineage 1: 133534.8
+
+
+Y1 = 2352/max(d1$node_med, na.rm=TRUE)
+Z1 = 45576/max(d1$node_med, na.rm=TRUE)
+
+d1mod <- d1[!is.na(d1[,'node_med']),]
+d1mod <- d1mod[!is.na(d1mod[,'parent_med']),]
+d1mod$node_med <- d1mod$node_med * Y1
+d1mod$parent_med <- d1mod$parent_med * Y1
+
+
+
+rr <- range(d1mod[,c('node_med', 'parent_med')])
+bb <- seq(floor(rr[1]),ceiling(rr[2]))
+mm <- apply(d1mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+
+
+cl1 <- apply(d1mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l1 <- apply(cl1,1,sum)
+cl1un <- apply(d1mod[d1mod$mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l1un <- apply(cl1un,1,sum)
+
+
+lin1 <- cbind(data.frame(bb), data.frame(l1), data.frame(l1un))
+lin1.m <- melt(lin1, id.vars="bb")
+
+
+l1.mig.p <- ggplot(lin1[lin1$l1 > 4,]) + geom_line(aes(bb, l1un/l1), colour = "black") + theme(legend.position = "none") + xlab("") + ylab("") + scale_x_reverse() + geom_ribbon(aes(x=bb, ymax=((l1un/l1) + 1/l1), ymin=((l1un/l1) - 1/l1)), alpha=.2) + scale_fill_manual(values=c("gray")) + scale_y_continuous(limits=c(-.2,.7))
+
++ geom_ribbon(aes(x=bb, ymax=((l2un/l2) + 1/l2), ymin=((l2un/l2) - 1/l2)), alpha=.2) + scale_fill_manual(values=c("gray"))
+
+l1.un.scaled <- l1.un.bsp * Y1
+
+l1.bsp.p <- ggplot(l1.un.scaled) + geom_line(aes(Time, Mean)) + geom_ribbon(aes(x=Time, ymax=Upper, ymin=Lower), alpha=.2) + scale_color_manual(values = c("gray")) + scale_fill_manual(values = c("gray")) + xlab("") + ylab("") + scale_x_reverse() + scale_y_continuous() + geom_hline(yintercept=7571.8, linetype="dashed", color = "red") + ylab("") + xlab("")
+
+
+plot_grid(
+  l1.mig.p, #+ xlim(1910, 0),
+  l1.bsp.p, #+ xlim(1910, 0),
+  ncol=1,
+  align="v"
+)
+
+
+
+
+
+
+
+
+#lin2
+d2 <- read.table("161111_lin2_UNMig.txt", header=F, sep="\t", na.strings=c("na","NA"))
+names(d2) <- c('node','parent','node_un','node_prob','parent_un','parent_prob','mig','node_med','parent_med','node_posterior','parent_posterior')  
+
+
+Y2 = 2021/max(d2$node_med, na.rm=TRUE)
+Z2 = 39173/max(d2$node_med, na.rm=TRUE)
+
+d2mod <- d2[!is.na(d2[,'node_med']),]
+d2mod <- d2mod[!is.na(d2mod[,'parent_med']),]
+d2mod$node_med <- d2mod$node_med * Z2
+d2mod$parent_med <- d2mod$parent_med * Z2
+
+
+
+rr <- range(d2mod[,c('node_med', 'parent_med')])
+bb <- seq(floor(rr[1]),ceiling(rr[2]))
+mm <- apply(d2mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+
+
+cl2 <- apply(d2mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l2 <- apply(cl2,1,sum)
+cl2un <- apply(d2mod[d2mod$mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l2un <- apply(cl2un,1,sum)
+
+lin2 <- cbind(data.frame(bb), data.frame(l2), data.frame(l2un))
+lin2.m <- melt(lin2, id.vars="bb")
+
+
+
+l2.mig.p <- ggplot(lin2[lin2$l2 > 4,]) + geom_line(aes(bb, l2un/l2), colour = "black") + theme(legend.position = "none") + xlab("") + ylab("") + scale_x_reverse() + geom_ribbon(aes(x=bb, ymax=((l2un/l2) + 1/l2), ymin=((l2un/l2) - 1/l2)), alpha=.2) + scale_fill_manual(values=c("gray")) + scale_y_continuous(limits = c(-0.2, 0.7))
+
+
+
+l2.un.scaled <- l2.un.bsp * Z2
+
+l2.bsp.p <- ggplot(l2.un.scaled) + geom_line(aes(Time, Mean)) + geom_ribbon(aes(x=Time, ymax=Upper, ymin=Lower), alpha=.2) + scale_color_manual(values = c("gray")) + scale_fill_manual(values = c("gray")) + xlab("") + ylab("") + scale_x_reverse() + scale_y_continuous() + geom_hline(yintercept=4486, linetype="dashed", color = "red") + ylab("") + xlab("")
+
+
+b <- plot_grid(
+  l2.mig.p + xlim(1100, 0),
+  l2.bsp.p + xlim(1100, 0),
+  ncol=1,
+  align="v"
+)
+
+
+#lin3
+d3 <- read.table("161111_lin3_UNMig.txt", header=F, sep="\t", na.strings=c("na","NA"))
+names(d3) <- c('node','parent','node_un','node_prob','parent_un','parent_prob','mig','node_med','parent_med','node_posterior','parent_posterior')  
+
+
+Y3 = 1482/max(d3$node_med, na.rm=TRUE)
+Z3 = 28722/max(d3$node_med, na.rm=TRUE)
+
+d3mod <- d3[!is.na(d3[,'node_med']),]
+d3mod <- d3mod[!is.na(d3mod[,'parent_med']),]
+d3mod$node_med <- d3mod$node_med * Z3
+d3mod$parent_med <- d3mod$parent_med * Z3
+
+
+
+rr <- range(d3mod[,c('node_med', 'parent_med')])
+bb <- seq(floor(rr[1]),ceiling(rr[2]))
+mm <- apply(d3mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+
+
+cl3 <- apply(d3mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l3 <- apply(cl3,1,sum)
+cl3un <- apply(d3mod[d3mod$mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l3un <- apply(cl3un,1,sum)
+
+lin3 <- cbind(data.frame(bb), data.frame(l3), data.frame(l3un))
+lin3.m <- melt(lin3, id.vars="bb")
+
+
+l3.mig.p <- ggplot(lin3[lin3$l3 > 4,]) + geom_line(aes(bb, l3un/l3), colour = "black") + theme(legend.position = "none") + xlab("") + ylab("") + scale_x_reverse() + geom_ribbon(aes(x=bb, ymax=((l3un/l3) + 1/l3), ymin=((l3un/l3) - 1/l3)), alpha=.2) + scale_fill_manual(values=c("gray")) + scale_y_continuous(limits = c(-0.2, 0.7))
+
+
+
+l3.un.scaled <- l3.un.bsp * Z3
+
+l3.bsp.p <- ggplot(l3.un.scaled) + geom_line(aes(Time, Mean)) + geom_ribbon(aes(x=Time, ymax=Upper, ymin=Lower), alpha=.2) + scale_color_manual(values = c("gray")) + scale_fill_manual(values = c("gray")) + xlab("") + ylab("") + scale_x_reverse() + scale_y_continuous() + geom_hline(yintercept=3987, linetype="dashed", color = "red") + ylab("") + xlab("")
+
+
+c <- plot_grid(
+  l3.mig.p + xlim(1300, 0),
+  l3.bsp.p + xlim(1300, 0),
+  ncol=1,
+  align="v"
+)
+
+
+
+
+
+
+
+
+#lin 4
+d4 <- read.table("161111_lin4_UNMig.txt", header=F, sep="\t", na.strings=c("na","NA"))
+names(d4) <- c('node','parent','node_un','node_prob','parent_un','parent_prob','mig','node_med','parent_med','node_posterior','parent_posterior')  
+
+
+Y4 = 1918/max(d4$node_med, na.rm=TRUE)
+Z4 = 37161/max(d4$node_med, na.rm=TRUE)
+
+d4mod <- d4[!is.na(d4[,'node_med']),]
+d4mod <- d4mod[!is.na(d4mod[,'parent_med']),]
+d4mod$node_med <- d4mod$node_med * Z4
+d4mod$parent_med <- d4mod$parent_med * Z4
+
+
+
+rr <- range(d4mod[,c('node_med', 'parent_med')])
+bb <- seq(floor(rr[1]),ceiling(rr[2]))
+mm <- apply(d4mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+
+
+cl4 <- apply(d4mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l4 <- apply(cl4,1,sum)
+cl4un <- apply(d4mod[d4mod$mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l4un <- apply(cl4un,1,sum)
+
+lin4 <- cbind(data.frame(bb), data.frame(l4), data.frame(l4un))
+lin4.m <- melt(lin4, id.vars="bb")
+
+
+l4.mig.p <- ggplot(lin4[lin4$l4 > 4,]) + geom_line(aes(bb, l4un/l4), colour = "black") + theme(legend.position = "none") + xlab("") + ylab("") + scale_x_reverse() + geom_ribbon(aes(x=bb, ymax=((l4un/l4) + 1/l4), ymin=((l4un/l4) - 1/l4)), alpha=.2) + scale_fill_manual(values=c("gray")) + scale_y_continuous(limits = c(-0.2, 0.7))
+
+
+
+l4.un.scaled <- l4.un.bsp * Z4
+
+l4.bsp.p <- ggplot(l4.un.scaled) + geom_line(aes(Time, Mean)) + geom_ribbon(aes(x=Time, ymax=Upper, ymin=Lower), alpha=.2) + scale_color_manual(values = c("gray")) + scale_fill_manual(values = c("gray")) + xlab("") + ylab("") + scale_x_reverse() + scale_y_log10(limits=c(10,1e6)) + geom_hline(yintercept=7797, linetype="dashed", color = "red") + ylab("") + xlab("")
+
+l4.bsp.2 <- ggplot(l4.un.scaled) + 
+  geom_line(aes(Time, Mean)) + 
+  geom_ribbon(aes(x=Time, ymax=Upper, ymin=Lower), alpha=.2) + 
+  scale_color_manual(values = c("gray")) + 
+  scale_fill_manual(values = c("gray")) + xlab("Years Before Present") + 
+  ylab("Eff Pop Size") + scale_x_reverse() + scale_y_continuous() + 
+  geom_hline(yintercept=7797, linetype="dashed", color = "red") + ylab("") + xlab("")
+
+d <- plot_grid(
+  l4.mig.p + xlim(1600, 0),
+  #l4.bsp.p + xlim(2500, 0),
+  l4.bsp.2 + xlim(1600, 0),
+  ncol=1,
+  align="v"
+)
+
+fig <- plot_grid(
+  l1.mig.p + xlim(1910, 0),
+  l2.mig.p + xlim(1100, 0),
+  l1.bsp.p + xlim(1910, 0),
+  l2.bsp.p + xlim(1100, 0),
+  l3.mig.p + xlim(1300, 0),
+  l4.mig.p + xlim(1600, 0),
+  l3.bsp.p + xlim(1300, 0),
+  l4.bsp.2 + xlim(1600, 0),
+  ncol=2,
+  align="v"
+)
+
+fig2 <- plot_grid(
+  l1.mig.p + xlim(37015.5, 0),
+  l2.mig.p + xlim(21317.83, 0),
+  l1.bsp.p + xlim(37015.5, 0),
+  l2.bsp.p + xlim(21317.83, 0),
+  l3.mig.p + xlim(25193.8, 0),
+  l4.mig.p + xlim(31007.75, 0),
+  l3.bsp.p + xlim(25193.8, 0),
+  l4.bsp.2 + xlim(31007.75, 0),
+  ncol=2,
+  align="v"
+)
+
+
+exportPlot(fig2, "migration_bsp2", 9, 9)
+
+
+```
+

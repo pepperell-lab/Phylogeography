@@ -1,7 +1,7 @@
 ---
 title: "Testing for Genetic Variability in Geographic Space"
 author: "Mary O'Neill"
-date: "April 27, 2016"
+date: "July 19, 2016"
 output: html_document
 ---
 
@@ -26,11 +26,11 @@ In order to perform a Mantel test I need a genetic distance matrix and a geograp
 ```{r geo}
 
 #Distance matrix for trade routes
-trade <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/mantel/160511_Route_Dist.txt", header=T, row.names=1, sep='\t')
+trade <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/mantel/DistanceMatrixAlongRoutes0704.txt", header=T, row.names=1, sep='\t')
 dm.trade <- as.matrix(trade)
 
 #Distance matrix for TB samples
-tbdist <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/mantel/160511_Geodesic_Dist.txt", header=T, row.names=1, sep='\t')
+tbdist <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/mantel/GreatCircleDistanceMatrix0713_mod.txt", header=T, row.names=1, sep='\t')
 tbdist[is.na(tbdist)] <- 0
 dm.tb <- as.matrix(tbdist)
 
@@ -53,7 +53,7 @@ names(meta) <- c("name", "accession", "country", "subregion", "iso2", "whoreg", 
 Mtb <- read.FASTA("C:/Users/Mary/PepLab/data/Phylogeography/mantel/160223_snps_50per_recoded.fasta") #read the fasta
 #pops <- sapply(strsplit(labels(Mtb), "_"), "[[", 2) #extract pop from isolate name
 #Mtb2 <- DNAbin2genind(Mtb, pops) #convert DNAbin to genind
-
+#Mtb3 <- genind2hierfstat(Mtb2, pop=NULL)
 #popcag <- genind2genpop(Mtb2) #convert from genind to genpop object
 
 #nei <- dist.genpop(popcag, method=1)
@@ -88,16 +88,19 @@ distsamps <- rownames(dm.trade)
 gensamps <- rownames(gm)
 samps <- intersect(distsamps, gensamps)
 
+idm.a <- dm.tb[rownames(dm.tb) %in% samps, colnames(dm.tb) %in% samps]
 dm.a <- dm.trade[rownames(dm.trade) %in% samps, colnames(dm.trade) %in% samps]
 gm.a <- gm[rownames(gm) %in% samps, colnames(gm) %in% samps]
 
+sidm.a <- idm.a[order(rownames(idm.a)), order(colnames(idm.a))]
 sdm.a <- dm.a[order(rownames(dm.a)), order(colnames(dm.a))]
 sgm.a <- gm.a[order(rownames(gm.a)), order(colnames(gm.a))]
 
 
-mantel.test(sdm.a, sgm.a)
-mantel(sgm.a,sdm.a)
-mantel.rtest(as.dist(sdm.a),as.dist(sgm.a))
+#mantel.test(sdm.a, sgm.a)
+mantel(sgm.a,sdm.a, permutations=9999)
+mantel(sgm.a,sidm.a, permutations=9999)
+#mantel.rtest(as.dist(sdm.a),as.dist(sgm.a))
 
 ```
 
@@ -107,18 +110,21 @@ mantel.rtest(as.dist(sdm.a),as.dist(sgm.a))
 #subset matrices by lineage 1
 lin1 = as.vector(subset(meta, lin == 1, name))
 
+idm.1 <- dm.tb[rownames(dm.tb) %in% lin1$name, colnames(dm.tb) %in% lin1$name]
 dm.1 <- dm.trade[rownames(dm.trade) %in% lin1$name, colnames(dm.trade) %in% lin1$name]
 gm.1 <- gm[rownames(gm) %in% lin1$name, colnames(gm) %in% lin1$name]
 
+sidm.1 <- idm.1[order(rownames(idm.1)), order(colnames(idm.1))]
 sdm.1 <- dm.1[order(rownames(dm.1)), order(colnames(dm.1))]
 sgm.1 <- gm.1[order(rownames(gm.1)), order(colnames(gm.1))]
 
 
-mantel.test(sdm.1, sgm.1)
+#mantel.test(sdm.1, sgm.1)
 
-mantel(sgm.1,sdm.1)
+mantel(sgm.1,sdm.1, permutations=9999)
+mantel(sgm.1,sidm.1, permutations=9999)
 
-mantel.rtest(as.dist(sdm.1),as.dist(sgm.1))
+#mantel.rtest(as.dist(sdm.1),as.dist(sgm.1))
 ```
 
 ###Lineage 2
@@ -127,16 +133,19 @@ mantel.rtest(as.dist(sdm.1),as.dist(sgm.1))
 #subset matrices by lineage 2
 lin2 = as.vector(subset(meta, lin == 2, name))
 
+idm.2 <- dm.tb[rownames(dm.tb) %in% lin2$name, colnames(dm.tb) %in% lin2$name]
 dm.2 <- dm.trade[rownames(dm.trade) %in% lin2$name, colnames(dm.trade) %in% lin2$name]
 gm.2 <- gm[rownames(gm) %in% lin2$name, colnames(gm) %in% lin2$name]
 
+sidm.2 <- idm.2[order(rownames(idm.2)), order(colnames(idm.2))]
 sdm.2 <- dm.2[order(rownames(dm.2)), order(colnames(dm.2))]
 sgm.2 <- gm.2[order(rownames(gm.2)), order(colnames(gm.2))]
 
 
-mantel.test(sdm.2, sgm.2)
-mantel(sgm.2,sdm.2)
-mantel.rtest(as.dist(sdm.2),as.dist(sgm.2))
+#mantel.test(sdm.2, sgm.2)
+mantel(sgm.2,sdm.2, permutations = 9999)
+mantel(sgm.2,sidm.2, permutations = 9999)
+#mantel.rtest(as.dist(sdm.2),as.dist(sgm.2))
 ```
 
 ###Lineage 3
@@ -145,17 +154,20 @@ mantel.rtest(as.dist(sdm.2),as.dist(sgm.2))
 #subset matrices by lineage 3
 lin3 = as.vector(subset(meta, lin == 3, name))
 
+idm.3 <- dm.tb[rownames(dm.tb) %in% lin3$name, colnames(dm.tb) %in% lin3$name]
 dm.3 <- dm.trade[rownames(dm.trade) %in% lin3$name, colnames(dm.trade) %in% lin3$name]
 gm.3 <- gm[rownames(gm) %in% lin3$name, colnames(gm) %in% lin3$name]
 
+sidm.3 <- idm.3[order(rownames(idm.3)), order(colnames(idm.3))]
 sdm.3 <- dm.3[order(rownames(dm.3)), order(colnames(dm.3))]
 sgm.3 <- gm.3[order(rownames(gm.3)), order(colnames(gm.3))]
 
 
 
-mantel.test(sdm.3, sgm.3)
-mantel(sgm.3,sdm.3)
-mantel.rtest(as.dist(sdm.3),as.dist(sgm.3))
+#mantel.test(sdm.3, sgm.3)
+mantel(sgm.3,sdm.3, permutations = 9999)
+mantel(sgm.3,sidm.3, permutations = 9999)
+#mantel.rtest(as.dist(sdm.3),as.dist(sgm.3))
 
 ```
 
@@ -166,17 +178,20 @@ mantel.rtest(as.dist(sdm.3),as.dist(sgm.3))
 #subset matrices by lineage 4
 lin4 = as.vector(subset(meta, lin == 4, name))
 
+idm.4 <- dm.tb[rownames(dm.tb) %in% lin4$name, colnames(dm.tb) %in% lin4$name]
 dm.4 <- dm.trade[rownames(dm.trade) %in% lin4$name, colnames(dm.trade) %in% lin4$name]
 gm.4 <- gm[rownames(gm) %in% lin4$name, colnames(gm) %in% lin4$name]
 
+sidm.4 <- idm.4[order(rownames(idm.4)), order(colnames(idm.4))]
 sdm.4 <- dm.4[order(rownames(dm.4)), order(colnames(dm.4))]
 sgm.4 <- gm.4[order(rownames(gm.4)), order(colnames(gm.4))]
 
 
 
-mantel.test(sdm.4, sgm.4)
-mantel(sgm.4,sdm.4)
-mantel.rtest(as.dist(sdm.4),as.dist(sgm.4))
+#mantel.test(sdm.4, sgm.4)
+mantel(sgm.4,sdm.4, permutations = 9999)
+mantel(sgm.4,sidm.4, permutations = 9999)
+#mantel.rtest(as.dist(sdm.4),as.dist(sgm.4))
 ```
 
 ###Lineage 5
@@ -185,16 +200,18 @@ mantel.rtest(as.dist(sdm.4),as.dist(sgm.4))
 #subset matrices by lineage 5
 lin5 = as.vector(subset(meta, lin == 5, name))
 
+idm.5 <- dm.tb[rownames(dm.tb) %in% lin5$name, colnames(dm.tb) %in% lin5$name]
 dm.5 <- dm.trade[rownames(dm.trade) %in% lin5$name, colnames(dm.trade) %in% lin5$name]
 gm.5 <- gm[rownames(gm) %in% lin5$name, colnames(gm) %in% lin5$name]
 
+sidm.5 <- idm.5[order(rownames(idm.5)), order(colnames(idm.5))]
 sdm.5 <- dm.5[order(rownames(dm.5)), order(colnames(dm.5))]
 sgm.5 <- gm.5[order(rownames(gm.5)), order(colnames(gm.5))]
 
 
 
 #mantel.test(sdm.5, sgm.5)
-#mantel(sgm.5,sdm.5)
+mantel(sgm.5,sidm.5, na.rm=TRUE)
 #mantel.rtest(as.dist(sdm.5),as.dist(sgm.5))
 ```
 
@@ -204,17 +221,20 @@ sgm.5 <- gm.5[order(rownames(gm.5)), order(colnames(gm.5))]
 #subset matrices by lineage 6
 lin6 = as.vector(subset(meta, lin == 6, name))
 
+idm.6 <- dm.tb[rownames(dm.tb) %in% lin6$name, colnames(dm.tb) %in% lin6$name]
 dm.6 <- dm.trade[rownames(dm.trade) %in% lin6$name, colnames(dm.trade) %in% lin6$name]
 gm.6 <- gm[rownames(gm) %in% lin6$name, colnames(gm) %in% lin6$name]
 
+sidm.6 <- idm.6[order(rownames(idm.6)), order(colnames(idm.6))]
 sdm.6 <- dm.6[order(rownames(dm.6)), order(colnames(dm.6))]
 sgm.6 <- gm.6[order(rownames(gm.6)), order(colnames(gm.6))]
 
 
 
-mantel.test(sdm.6, sgm.6)
-mantel(sgm.6,sdm.6)
-mantel.rtest(as.dist(sdm.6),as.dist(sgm.6))
+#mantel.test(sdm.6, sgm.6)
+mantel(sgm.6,sdm.6, permutations = 9999)
+mantel(sgm.6,sidm.6, permutations = 9999)
+#mantel.rtest(as.dist(sdm.6),as.dist(sgm.6))
 ```
 
 
@@ -224,15 +244,17 @@ mantel.rtest(as.dist(sdm.6),as.dist(sgm.6))
 #subset matrices by lineage 7
 lin7 = as.vector(subset(meta, lin == 7, name))
 
+idm.7 <- dm.tb[rownames(dm.tb) %in% lin7$name, colnames(dm.tb) %in% lin7$name]
 dm.7 <- dm.trade[rownames(dm.trade) %in% lin7$name, colnames(dm.trade) %in% lin7$name]
 gm.7 <- gm[rownames(gm) %in% lin7$name, colnames(gm) %in% lin7$name]
 
+sidm.7 <- idm.7[order(rownames(idm.7)), order(colnames(idm.7))]
 sdm.7 <- dm.7[order(rownames(dm.7)), order(colnames(dm.7))]
 sgm.7 <- gm.7[order(rownames(gm.7)), order(colnames(gm.7))]
 
 
 
 #mantel.test(sdm.7, sgm.7)
-#mantel(sgm.7,sdm.7)
+mantel(sgm.7,sidm.7)
 #mantel.rtest(as.dist(sdm.7),as.dist(sgm.7))
 ```

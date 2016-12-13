@@ -8,7 +8,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 require("ggplot2")
 
-
 ```
 
 This is meant to look for outlier samples in the Phylogeography dataset. I am going to start by reading in the output from a script I wrote to grab summary statistics for any number of samples from the "genome_results.txt" file output by Qualimap bamqc (for reference-guided 'RGA' samples) and Quast (for de novo samples). My scripts can be found on github (https://github.com/ONeillMB1/alignmentQC/). Information about the program Qualimap can be found on its website (http://qualimap.bioinfo.cipf.es). Information about the program Quast can be found on its website (http://quast.bioinf.spbau.ru/manual.html)
@@ -19,28 +18,51 @@ Lets start by reading in the datasets, combining them, and having a look at the 
 #specify paths to input files
 soloFile <- "C:/Users/Mary/PepLab/data/Phylogeography/QualityControl/new_all_RGA_solo_collatedBamQC.txt"
 multiFile <- "C:/Users/Mary/PepLab/data/Phylogeography/QualityControl/all_RGA_multi_collatedBamQC.txt"
-
 denovoFile <- "C:/Users/Mary/PepLab/data/Phylogeography/QualityControl/denovo_collatedQuast.txt"
+tbarcFile <- "C:/Users/Mary/PepLab/data/Phylogeography/QualityControl/tbarc_bamQC.out"
 
 #read in the files
 solo <- read.csv(soloFile, header=T, sep='\t', na.strings="NA")
 multi <- read.csv(multiFile, header=T, sep='\t', na.strings="NA")
 denovo <- read.csv(denovoFile, header=T, sep='\t', na.strings="NA")
+tbarc <- read.csv(tbarcFile, header=T, sep='\t', na.strings="NA")
 
 #Quast only outputs the number of indels, so make a column in the solo and multi by adding the number of insertions and number of deletions
 solo$indels <- solo$numIns + solo$numDel
 multi$indels <- multi$numIns + multi$numDel
+tbarc$indels <- NA
 
 #Create a column specifying the sample type: solo, multi, or denovo
 solo$Type <- "solo"
 multi$Type <- "multi"
 denovo$Type <- "denovo"
+tbarc$Type <- "tbarc"
 
 #Merge the files into one dataframe
-dat <- rbind(solo, multi, denovo)
+dat <- rbind(solo, multi, denovo, tbarc)
+
+#Read info containing lineage for each sample
+lineageFile <- "C:/Users/Mary/PepLab/data/Phylogeography/QualityControl/run_samp_lin.txt2"
+lin <- read.csv(lineageFile, header=F, sep='\t', na.strings="NA")
+lin$V1 <- as.character(lin$V1)
 
 #Force type into a factor
 dat$Type <- as.factor(dat$Type)
+dat$Sample <- as.character(dat$Sample)
+
+#There are spaces in front of some of the names?
+dat$Sample <- gsub(" ", "",dat$Sample)
+
+
+dat$lin <- NA
+dat$lin <- lin[match(dat$Sample, lin$V1), 'V3']
+dat$lin <- as.factor(dat$lin)
+
+dat[dat$Sample == 'ERR159959', ]
+
+
+dat$country <- NA
+dat$country <- lin[match(dat$Sample, lin$V1), 'V4']
 
 str(dat)
 ```
@@ -64,7 +86,12 @@ MQ <- ggplot(dat, aes(Type, meanMQ)) +
 plot(MQ)
 ```
 
+```{r lowMQ}
 
+MQ <- subset(dat, meanMQ < 58, select = c(Sample, meanCov, stdCov, meanMQ, perGen10X, perGen15X, perGen20X, perGen30X, perMapped, GCper, Type, lin))
+
+MQ[order(MQ$meanMQ),]
+```
 
 ##Mean Coverage
 
@@ -87,11 +114,31 @@ plot(cov)
 
 The dashed red line indicates an average coverage of 30X. Lets look at the samples that have low coverage.
 
+```{r percov}
+
+cov2 <- ggplot(dat, aes(Type, perGen20X)) + 
+  geom_boxplot(fill='#A4A4A4', color="black") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("") +
+  ylab("Percent Genome Covered") +
+  scale_y_continuous()
+  
+  
+plot(cov2)
+```
+
+
 ```{r lowCov}
 
-LC <- subset(dat, meanCov < 20, select = c(Sample, meanCov, stdCov, perGen10X, perGen15X, perGen20X, perGen30X, perMapped, GCper, Type))
+LC <- subset(dat, meanCov < 20, select = c(Sample, meanCov, stdCov, perGen10X, perGen15X, perGen20X, perGen30X, perMapped, GCper, Type, lin, country))
 
-LC[order(LC$meanCov),]
+LC[order(LC$perGen10X),]
+
+Lpc <- subset(dat, perGen20X < 80, select = c(Sample, meanCov, stdCov, perGen10X, perGen15X, perGen20X, perGen30X, perMapped, GCper, Type, lin, country))
+
+Lpc[order(Lpc$perGen20X) & Lpc$Type == 'solo',]
 
 ```
 
@@ -117,7 +164,7 @@ Yikes.... some of these have a very low percent mapped, likely indicating contam
 
 ```{r lowPerMap}
 
-LPM <- subset(dat, perMapped < 80, select = c(Sample, meanCov, stdCov, perGen10X, perGen15X, perGen20X, perGen30X, perMapped, GCper, Type))
+LPM <- subset(dat, perMapped < 75, select = c(Sample, meanCov, stdCov, perGen10X, perGen15X, perGen20X, perGen30X, perMapped, GCper, Type, lin, country))
 
 LPM[order(LPM$perMapped),]
 
@@ -187,7 +234,7 @@ The samples with zero are single-ended and thus do not have any insert size. It 
 ```{r gc}
 
 gc <- ggplot(dat, aes(x=Type, y=GCper)) + 
-  geom_boxplot(fill='#A4A4A4', color="black") +
+  geom_boxplot() +
   theme_bw() +
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank()) +
@@ -200,7 +247,50 @@ plot(gc)
 
 I don't know how much flexibility we should allow in terms of GC content for M.tb? Perhaps different lineages have differing gc content? Maybe I can incorporate lineage info into this in the future. It is of note that the denovo samples have a very tight GC distriubtion. Perhaps this is reflective of the majority of them being prepared by the Broad, while the SRAs are from numerous different studies?
 
-For now, lets look at the relationship between percent mapped and GC content.
+
+```{r oGC}
+
+oGC <- subset(dat, GCper< 62 | GCper > 66, select = c(Sample, meanCov, stdCov, perGen10X, perGen15X, perGen20X, perGen30X, perMapped, GCper, Type, lin, country))
+
+oGC[order(oGC$GCper),]
+
+```
+
+
+```{r gc2}
+
+gc2 <- ggplot(dat, aes(x=Type, y=GCper)) + 
+  geom_boxplot(aes(color=lin)) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("") +
+  ylab("GC Percentage") 
+
+  
+plot(gc2)
+```
+UPDATE: GC content does seem to differ by lineage.(Dark gray is the NAs in the dataset which correspond to the denovo tbarc alignments whose names differ from those on the tree.)
+
+```{r perMap}
+
+perMap <- ggplot(dat, aes(x=lin, y=perMapped)) + 
+  geom_boxplot() +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  xlab("") +
+  ylab("Percent Mapped") 
+
+  
+plot(perMap)
+```
+
+Lineage 7 samples consistently only have about 90% of there reads mapping. This could indicate contamination, or there may be regions of the genome that are so far diverged from H37Rv that they are not mapping. It would be interesting to de novo assemble these and look at the gene content. Very, very interesting!
+
+
+
+Now, lets look at the relationship between percent mapped and GC content.
 
 ```{r corr}
 
@@ -306,8 +396,8 @@ The other outlier in this comparison is ERR234185. It is part of the global Mtb 
 ```{r covPlot}
 
 
-cov <- dat[,c('Sample', "Type", 'meanCov', 'stdCov', 'perGen10X', 'perGen15X', 'perGen20X', 'perGen30X')]
-cov.m <- melt(cov, id = c('Sample', 'meanCov', 'stdCov', "Type"))
+cov <- dat[,c('Sample', "Type", 'lin', 'meanCov', 'stdCov', 'perGen10X', 'perGen15X', 'perGen20X', 'perGen30X')]
+cov.m <- melt(cov, id = c('Sample', 'meanCov', 'stdCov', "Type", 'lin'))
 
 covPlot <- ggplot(cov.m, aes(x=variable, y=value)) + 
   geom_boxplot(aes(colour=Type)) +

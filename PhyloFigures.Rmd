@@ -750,7 +750,7 @@ plot_grid(
 ### Lineage 1
 ```{r beast2-lin1, echo=FALSE, warning=FALSE}
 
-l1t <- read.beast("lin1_UN_MCC.tree")
+l1t <- read.beast("lin4_UN_MCC.tree")
 
 l1 <- fortify(l1t)
 
@@ -760,6 +760,44 @@ l1.dat <- l1[,c('node', 'parent', 'label', 'geography', 'geography.prob', 'geogr
 l1.dat$geography.set.prob = gsub("\\{|\\}", "", l1.dat$geography.set.prob)
 l1.dat$geography.set = gsub("\\{|\\}", "", l1.dat$geography.set)
 
+#subset the tips
+tre_tips <- subset(l1, isTip == TRUE, c(label, geography))
+
+#split the tips by UN
+tre_iso = split(tre_tips$label, tre_tips$geography)
+
+tre.g <- groupOTU(l1t, tre_iso)
+
+t <- ggtree(tre.g, ladderize=FALSE) + geom_tippoint(aes(color=group)) + 
+  geom_tiplab(aes(color=group))
+  #geom_text2(aes(subset = isTip, label = geography, color = group), hjust=-0.1)  
+  
+
+
+###code to make pie chart
+
+df <- fortify(l1t)
+df <- df[df$isTip == FALSE,]
+df <- df[df$posterior >= 0.5,] #remove nodes with posterior prob limit < 0.5 (weren't annotated)
+df <- df[,c('node', 'geography.set', 'geography.set.prob')]
+
+
+df$geography.set.prob = gsub("\\{|\\}", "", df$geography.set.prob)
+df$geography.set = gsub("\\{|\\}", "", df$geography.set)
+
+df.long = cSplit(df, splitCols = c("geography.set", "geography.set.prob"), sep = c(",", ","), direction = "long")
+df.wide = as.data.frame(dcast(df.long, node ~ geography.set))
+
+df.wide[is.na(df.wide)] <- 0
+
+
+pies <- nodepie(df.wide, cols=2:(length(df.wide)), alpha=.6)
+
+tp <- inset(t, pies, height=0.03, width=0.03)
+
+#ggsave("C:/Users/Mary/PepLab/data/Phylogeography/UN_discrete_pdfs/161120_lin4_pies.pdf", plot=tp, width=8, height=16)
+
+### end pie tree code
 
 #write.table(l1.dat, file="C:/Users/Mary/PepLab/data/Phylogeography/Phylo_Figures_Data//161111_lin1_migrations.txt", append=FALSE, quote=FALSE, sep="\t", eol="\n", na="na", row.names=FALSE, col.names=TRUE, qmethod="double")
 
@@ -791,7 +829,7 @@ l1un <- apply(cl1un,1,sum)
 lin1 <- cbind(data.frame(bb), data.frame(l1), data.frame(l1un))
 lin1.m <- melt(lin1, id.vars="bb")
 
-p1 <- ggplot(lin1.m) + geom_line(aes(bb, value, colour=variable)) + theme(legend.position=c(.75,.75), legend.title=element_blank()) + xlab("") + ylab("Number") + scale_colour_manual(values=c("red", "green"))
+p1 <- ggplot(lin1.m) + geom_line(aes(bb, value, colour=variable)) + theme(legend.position=c(.75,.75), legend.title=element_blank()) + xlab("") + ylab("Number") + scale_colour_manual(values=c("red", "green")) + scale_x_reverse()
 
 
 ###BSP
@@ -800,18 +838,33 @@ l1.bsp <- read.table("lin1_UN_BSP.data", skip=1, header=T)
 
 l1.bsp$TimeScaled <- l1.bsp$Time * (1/5e-8)
 
-p3 <- ggplot(l1.bsp) + geom_line(aes(TimeScaled, Mean), colour="black") + geom_line(aes(TimeScaled, Median), colour="purple") + geom_line(aes(TimeScaled, Upper), colour="gray") + geom_line(aes(TimeScaled, Lower), colour="gray") + xlab("Years Before Present") + ylab("Eff Pop Size")
+p3 <- ggplot(l1.bsp) + geom_line(aes(TimeScaled, Mean), colour="black") + geom_line(aes(TimeScaled, Median), colour="purple") + geom_line(aes(TimeScaled, Upper), colour="gray") + geom_line(aes(TimeScaled, Lower), colour="gray") + xlab("Years Before Present") + ylab("Eff Pop Size") + scale_x_reverse() + scale_y_log10()
 
 
-p2 <- ggplot(lin1) + geom_line(aes(bb, l1un/l1), colour = "green") + theme(legend.position = "none") + xlab("") + ylab("Mig/Possible")
+p2 <- ggplot(lin1) + geom_line(aes(bb, l1un/l1), colour = "green") + theme(legend.position = "none") + xlab("") + ylab("Mig/Possible") + scale_x_reverse()
 
+
+#plot_grid(
+#  tp,
+  #p1,
+#  p2,
+#  p3,
+#  ncol=1, align = "h"
+#)
 
 plot_grid(
-  p1,
   p2,
   p3,
   ncol=1, align = "h"
 )
+
+
+ggdraw() +
+  draw_plot(tp, 0, .4, 1, .6) +
+  draw_plot(p2, 0, .2, 1, .2) +
+  draw_plot(p3, 0, 0, 1, .2) +
+  draw_plot_label(c("A", "B", "C"), c(0, 0, 0), c(1, 0.5, 0.25), size = 15)
+
 
 ```
 
@@ -1014,7 +1067,7 @@ p2 <- ggplot(lin4) + geom_line(aes(bb, l4un/l4), colour = "green") + theme(legen
 
 
 plot_grid(
-  p1,
+  #p1,
   p2,
   p3,
   ncol=1, align = "h"
@@ -1053,6 +1106,11 @@ p6 <- ggplot(l6.bsp) + geom_line(aes(TimeScaled, Mean), colour="black") + geom_l
 p7 <- ggplot(l7.bsp) + geom_line(aes(TimeScaled, Mean), colour="black") + geom_line(aes(TimeScaled, Median), colour="purple") + geom_line(aes(TimeScaled, Upper), colour="gray") + geom_line(aes(TimeScaled, Lower), colour="gray") + xlab("Years Before Present") + ylab("Eff Pop Size")
 
 
+p5.2 <- ggplot(l5.bsp) + geom_line(aes(TimeScaled, Mean), colour = "black") + geom_ribbon(aes(x=TimeScaled, ymax=Upper, ymin=Lower), fill= "grey", alpha=.2) + xlab("Years Before Present") + ylab("Eff Pop Size") + scale_x_reverse() + scale_y_log10()
+  
+  
+  
+  
 plot_grid(
   p5,
   p6,
@@ -1062,158 +1120,34 @@ plot_grid(
 
 ```
 
+###Combined
 
-##Dadi Likelihood Surface Plots
+```{r comb, echo=FALSE, warning=FALSE}
 
-```{r dadi, echo=FALSE, warning=FALSE}
+bsp <- rbind(data.frame(lin="lin1", l1.bsp),
+              data.frame(lin="lin2", l2.bsp),
+              data.frame(lin="lin3", l3.bsp),
+              data.frame(lin="lin4", l4.bsp),
+              data.frame(lin="lin5", l5.bsp),
+              data.frame(lin="lin6", l6.bsp),
+              data.frame(lin="lin7", l7.bsp))
 
-myPalette <- colorRampPalette((brewer.pal(9, "YlOrRd")))
+colors = c("pink", "blue", "purple", "red", "darkred", "darkgreen", "yellow")
 
-
-param_grid_dadi <- read.table("lin1_likelihood_grid_expansion.txt", header=TRUE)
-l1 <-interp2xyz(interp(x=param_grid_dadi$nu, y=param_grid_dadi$T, z=param_grid_dadi$LL, duplicate="mean"), data.frame=TRUE)
-colnames(l1) <- c("vB", "t", "LL")
-l1 <- tbl_df(l1)
-l1 <- filter(l1, !is.na(LL), vB < 200, t < 10)
-l1p <- ggplot(l1, aes(x = vB, y = t, z = LL, fill = LL)) + 
-  geom_tile() + 
-  stat_contour(colour = "white", alpha=0.25, bins = 300, na.rm=TRUE) + 
-  scale_fill_gradientn(colours= myPalette(20), breaks=unname(quantile(l1$LL)), values=rescale(unname(quantile(l1$LL))), guide="legend") +
-  #scale_y_continuous(limits=c(0, 10)) +
-  #scale_x_continuous(limits=c(0, 200)) +
-  theme_bw() +
-  theme(text = element_text(size=20),
-       legend.text = element_text(size=18),
-       axis.text.x = element_text(size = 18),
-       axis.text.y = element_text(size = 18),
-       panel.background=element_blank(),
-       panel.grid.major= element_blank(),
-       legend.position="none")
-
-param_grid_dadi <- read.table("lin2_likelihood_grid_expansion.txt", header=TRUE)
-l2 <-interp2xyz(interp(x=param_grid_dadi$nu, y=param_grid_dadi$T, z=param_grid_dadi$LL, duplicate="mean"), data.frame=TRUE)
-colnames(l2) <- c("vB", "t", "LL")
-l2 <- tbl_df(l2)
-l2 <- filter(l2, !is.na(LL), vB < 500, t < 10)
-l2p <- ggplot(l2, aes(x = vB, y = t, z = LL, fill = LL)) + 
-  geom_tile() + 
-  stat_contour(colour = "white", alpha=0.25, bins = 300, na.rm=TRUE) + 
-  scale_fill_gradientn(colours= myPalette(20), breaks=unname(quantile(l2$LL)), values=rescale(unname(quantile(l2$LL))), guide="legend") +
-  #scale_y_continuous(limits=c(0, 10)) +
-  #scale_x_continuous(limits=c(0, 200)) +
-  theme_bw() +
-  theme(text = element_text(size=20),
-       legend.text = element_text(size=18),
-       axis.text.x = element_text(size = 18),
-       axis.text.y = element_text(size = 18),
-       panel.background=element_blank(),
-       panel.grid.major= element_blank(),
-       legend.position="none")
-
-param_grid_dadi <- read.table("lin3_likelihood_grid_expansion.txt", header=TRUE)
-l3 <-interp2xyz(interp(x=param_grid_dadi$nu, y=param_grid_dadi$T, z=param_grid_dadi$LL, duplicate="mean"), data.frame=TRUE)
-colnames(l3) <- c("vB", "t", "LL")
-l3 <- tbl_df(l3)
-l3 <- filter(l3, !is.na(LL), vB < 200, t < 10)
-l3p <- ggplot(l1, aes(x = vB, y = t, z = LL, fill = LL)) + 
-  geom_tile() + 
-  stat_contour(colour = "white", alpha=0.25, bins = 300, na.rm=TRUE) + 
-  scale_fill_gradientn(colours= myPalette(20), breaks=unname(quantile(l3$LL)), values=rescale(unname(quantile(l3$LL))), guide="legend") +
-  #scale_y_continuous(limits=c(0, 10)) +
-  #scale_x_continuous(limits=c(0, 200)) +
-  theme_bw() +
-  theme(text = element_text(size=20),
-       legend.text = element_text(size=18),
-       axis.text.x = element_text(size = 18),
-       axis.text.y = element_text(size = 18),
-       panel.background=element_blank(),
-       panel.grid.major= element_blank(),
-       legend.position="none")
+bsp.p <- ggplot(bsp) + geom_line(aes(TimeScaled, Mean, group=lin, colour=lin)) + geom_ribbon(aes(x=TimeScaled, ymax=Upper, ymin=Lower, group=lin, colour=lin, fill=lin), alpha=.2) + scale_color_manual(values = c("pink", "blue", "purple", "red", "darkred", "darkgreen", "yellow")) + scale_fill_manual(values = c("pink", "blue", "purple", "red", "darkred", "darkgreen", "yellow")) + xlab("Years Before Present") + ylab("Eff Pop Size") + scale_x_reverse() + scale_y_log10()
+  
+bsp.p2 <- ggplot(bsp) + facet_wrap(~lin) + geom_line(aes(TimeScaled, Mean)) + geom_ribbon(aes(x=TimeScaled, ymax=Upper, ymin=Lower), alpha=.2) + xlab("Years Before Present") + ylab("Eff Pop Size") + scale_x_reverse() + scale_y_log10()
 
 
-param_grid_dadi <- read.table("lin4_likelihood_grid_expansion.txt", header=TRUE)
-l4 <-interp2xyz(interp(x=param_grid_dadi$nu, y=param_grid_dadi$T, z=param_grid_dadi$LL, duplicate="mean"), data.frame=TRUE)
-colnames(l4) <- c("vB", "t", "LL")
-l4 <- tbl_df(l4)
-l4 <- filter(l4, !is.na(LL), vB < 650, t < 30)
-l4p <- ggplot(l4, aes(x = vB, y = t, z = LL, fill = LL)) + 
-  geom_tile() + 
-  stat_contour(colour = "white", alpha=0.25, bins = 300, na.rm=TRUE) + 
-  scale_fill_gradientn(colours= myPalette(20), breaks=unname(quantile(l4$LL)), values=rescale(unname(quantile(l4$LL))), guide="legend") +
-  #scale_y_continuous(limits=c(0, 10)) +
-  #scale_x_continuous(limits=c(0, 200)) +
-  theme_bw() +
-  theme(text = element_text(size=20),
-       legend.text = element_text(size=18),
-       axis.text.x = element_text(size = 18),
-       axis.text.y = element_text(size = 18),
-       panel.background=element_blank(),
-       panel.grid.major= element_blank(),
-       legend.position="none")
+mig <- rbind(data.frame(lin="lin1", bb=lin1$bb, tot=lin1$l1, un=lin1$l1un),
+              data.frame(lin="lin2", bb=lin2$bb, tot=lin2$l2, un=lin2$l2un),
+              data.frame(lin="lin3", bb=lin3$bb, tot=lin3$l3, un=lin3$l3un),
+              data.frame(lin="lin4", bb=lin4$bb, tot=lin4$l4, un=lin4$l4un)) 
 
 
-param_grid_dadi <- read.table("lin5_likelihood_grid_expansion.txt", header=TRUE)
-l5 <-interp2xyz(interp(x=param_grid_dadi$nu, y=param_grid_dadi$T, z=param_grid_dadi$LL, duplicate="mean"), data.frame=TRUE)
-colnames(l5) <- c("vB", "t", "LL")
-l5 <- tbl_df(l5)
-l5 <- filter(l5, !is.na(LL), vB < 600, t < 30)
-l5p <- ggplot(l5, aes(x = vB, y = t, z = LL, fill = LL)) + 
-  geom_tile() + 
-  stat_contour(colour = "white", alpha=0.25, bins = 300, na.rm=TRUE) + 
-  scale_fill_gradientn(colours= myPalette(20), breaks=unname(quantile(l5$LL)), values=rescale(unname(quantile(l5$LL))), guide="legend") +
-  #scale_y_continuous(limits=c(0, 10)) +
-  #scale_x_continuous(limits=c(0, 200)) +
-  theme_bw() +
-  theme(text = element_text(size=20),
-       legend.text = element_text(size=18),
-       axis.text.x = element_text(size = 18),
-       axis.text.y = element_text(size = 18),
-       panel.background=element_blank(),
-       panel.grid.major= element_blank(),
-       legend.position="none")
+mig.p <- ggplot(mig) + geom_line(aes(x = bb, y=un/tot, group = lin, colour = lin)) + scale_color_manual(values = c("pink", "blue", "purple", "red")) + theme(legend.position = "none") + xlab("") + ylab("Mig/Possible") + scale_x_reverse()
 
+mig.p2 <- ggplot(mig) + facet_wrap(~lin) + geom_line(aes(x = bb, y=un/tot)) + theme(legend.position = "none") + xlab("") + ylab("Mig/Possible") + scale_x_reverse()
 
-
-param_grid_dadi <- read.table("lin6_likelihood_grid_expansion.txt", header=TRUE)
-l6 <-interp2xyz(interp(x=param_grid_dadi$nu, y=param_grid_dadi$T, z=param_grid_dadi$LL, duplicate="mean"), data.frame=TRUE)
-colnames(l6) <- c("vB", "t", "LL")
-l6 <- tbl_df(l6)
-l6 <- filter(l6, !is.na(LL), vB < 600, t < 30)
-l6p <- ggplot(l6, aes(x = vB, y = t, z = LL, fill = LL)) + 
-  geom_tile() + 
-  stat_contour(colour = "white", alpha=0.25, bins = 300, na.rm=TRUE) + 
-  scale_fill_gradientn(colours= myPalette(20), breaks=unname(quantile(l6$LL)), values=rescale(unname(quantile(l6$LL))), guide="legend") +
-  #scale_y_continuous(limits=c(0, 10)) +
-  #scale_x_continuous(limits=c(0, 200)) +
-  theme_bw() +
-  theme(text = element_text(size=20),
-       legend.text = element_text(size=18),
-       axis.text.x = element_text(size = 18),
-       axis.text.y = element_text(size = 18),
-       panel.background=element_blank(),
-       panel.grid.major= element_blank(),
-       legend.position="none")
-
-
-param_grid_dadi <- read.table("lin1_likelihood_grid_expansion.txt", header=TRUE)
-l7 <-interp2xyz(interp(x=param_grid_dadi$nu, y=param_grid_dadi$T, z=param_grid_dadi$LL, duplicate="mean"), data.frame=TRUE)
-colnames(l7) <- c("vB", "t", "LL")
-l7 <- tbl_df(l7)
-l7 <- filter(l7, !is.na(LL), vB < 600, t < 30)
-l7p <- ggplot(l7, aes(x = vB, y = t, z = LL, fill = LL)) + 
-  geom_tile() + 
-  stat_contour(colour = "white", alpha=0.25, bins = 300, na.rm=TRUE) + 
-  scale_fill_gradientn(colours= myPalette(20), breaks=unname(quantile(l7$LL)), values=rescale(unname(quantile(l7$LL))), guide="legend") +
-  #scale_y_continuous(limits=c(0, 10)) +
-  #scale_x_continuous(limits=c(0, 200)) +
-  theme_bw() +
-  theme(text = element_text(size=20),
-       legend.text = element_text(size=18),
-       axis.text.x = element_text(size = 18),
-       axis.text.y = element_text(size = 18),
-       panel.background=element_blank(),
-       panel.grid.major= element_blank(),
-       legend.position="none")
-
-
+```
 

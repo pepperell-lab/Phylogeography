@@ -190,6 +190,8 @@ c.mod[is.na(c.mod)] <- 0
 
 #calculate total number of samples from each country
 c.mod$total = rowSums(c.mod[,c("Lin1","Lin2","Lin3","Lin4","Lin5","Lin6","Lin7")])
+c.mod$tot14 = rowSums(c.mod[,c("Lin1","Lin2","Lin3","Lin4")])
+
 
 #calculate lineage frequencies for each country
 c.mod$perLin1 <- (c.mod$Lin1/c.mod$total)*100
@@ -199,6 +201,12 @@ c.mod$perLin4 <- (c.mod$Lin4/c.mod$total)*100
 c.mod$perLin5 <- (c.mod$Lin5/c.mod$total)*100
 c.mod$perLin6 <- (c.mod$Lin6/c.mod$total)*100
 c.mod$perLin7 <- (c.mod$Lin7/c.mod$total)*100
+
+c.mod$per14_Lin1 <- (c.mod$Lin1/c.mod$tot14)*100
+c.mod$per14_Lin2 <- (c.mod$Lin2/c.mod$tot14)*100
+c.mod$per14_Lin3 <- (c.mod$Lin3/c.mod$tot14)*100
+c.mod$per14_Lin4 <- (c.mod$Lin4/c.mod$tot14)*100
+
 
 #convert zeros to NA to allow exclusion of countries with only one data point
 #c.mod[c.mod == 0] <- NA
@@ -216,16 +224,16 @@ Excluding countries with only one sample results in `r (length(c.mod$Iso2) - len
 
 ## Plot the data!
 
-```{r plotting, echo=FALSE}
+```{r plotting, echo=FALSE, warning=FALSE}
 
 #join data to country map
 m2 <- joinCountryData2Map(c2,
                           joinCode = "ISO2",
                           nameJoinColumn = "Iso2")
 
-op <- par(fin=c(7,9),mfcol=c(2,2),mai=c(0.0,0.0,0.2,0.0),xaxs="i",yaxs="i")
+op <- par(fin=c(7,9),mfcol=c(2,2),mai=c(0.2,0.2,0.4,0.2),xaxs="i",yaxs="i")
 
-panels = c("perLin1", "perLin2", "perLin3", "perLin4") #, "perLin5", "perLin6", "perLin7")
+panels = c("per14_Lin1", "per14_Lin2", "per14_Lin3", "per14_Lin4")#, "perLin5", "perLin6", "perLin7")
 #brewerList <- c("Reds", "RdPu", "Blues", "Purples", "Reds")
 
 for(i in 1:4)
@@ -252,4 +260,28 @@ for(i in 1:4)
 
 
 par(op)
+
+```
+
+## Number of samples
+
+How many samples where included in the lineage frequency calculations - total (all lineages) per country.
+
+```{r samps, echo=FALSE, warning=FALSE}
+par(mai=c(0.2,0.2,0.4,0.2),xaxs="i",yaxs="i")
+colourPalette <- brewer.pal(9, "Greys")
+mapParams <- mapCountryData( m2
+                               , nameColumnToPlot="total"
+                               , addLegend=TRUE
+                               , catMethod=c(0,1,2,4,8,16,32,64,128,256,512,1024,2048)
+                               , colourPalette=colourPalette
+                               #, mapTitle=total
+                               , xlim=c(20,140)
+                               , ylim=c(-50, 80)
+                               #, mapRegion='africa'
+                               , missingCountryCol="white"
+                               , borderCol="darkgrey"
+                               , oceanCol=adjustcolor("#99CCFF")
+  )
+
 ```

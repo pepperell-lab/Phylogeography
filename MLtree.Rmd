@@ -9,8 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 require(ggplot2)
 require(ape)
-source("https://bioconductor.org/biocLite.R")
-biocLite("ggtree")
+#source("https://bioconductor.org/biocLite.R")
+#biocLite("ggtree")
 require("ggtree")
 require(phytools)
 require(phangorn)
@@ -52,7 +52,8 @@ Normally they should be excluded from the analysis.""
 
 ##ML Tree
 ```{r loadData}
-tre <- read.tree("RAxML_bipartitions.160412_RAxML_bestTree_rapidbootsnp.tree")
+
+tre <- read.tree("C:/Users/Mary/PepLab/data/Phylogeography/trees/final_dataset/RAxML_bipartitions.160412_RAxML_bestTree_rapidbootsnp.tree")
 raxml <- read.raxml("RAxML_bipartitionsBranchLabels.160412_RAxML_bestTree_rapidbootsnp.tree")
 
 ggtree(raxml, ladderize = FALSE, layout="unrooted") 
@@ -67,12 +68,12 @@ ggtree(raxml, ladderize = FALSE) + geom_treescale(offset=-10) + geom_tippoint()
 This code takes a very long time.
 ```{r densiTree}
 
-btrees <- read.tree("RAxML_bootstrap.snp_rapidbootstrap")
-best_tree <- read.tree("RAxML_bestTree.global_bestTree")
+#btrees <- read.tree("RAxML_bootstrap.snp_rapidbootstrap")
+#best_tree <- read.tree("RAxML_bestTree.global_bestTree")
 
-p <- ggtree(btrees, layout="rectangular", color="lightblue", alpha=.3)
-df <- fortify(best_tree, branch.length = 'none')
-p+geom_tree(data=df, color='firebrick')
+#p <- ggtree(btrees, layout="rectangular", color="lightblue", alpha=.3)
+#df <- fortify(best_tree, branch.length = 'none')
+#p+geom_tree(data=df, color='firebrick')
 ```
 
 ##GroupOTU
@@ -87,35 +88,75 @@ tre2 <- groupOTU(tre, isoInfo)
 ggtree(tre2, aes(color=group), ladderize=FALSE)
 
 
+
+#9/6/2016
+#color by UN
+
+un <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/iso2_to_UNreg.txt")
+
+lapply(strsplit(as.character(tre$tip.label), "_"), "[", 2)
+
+
+tre.dat[match(gts.m$Sample, tre.dat$label), 'x']
+
+
+UNgroups <- un[match(lapply(strsplit(as.character(tre$tip.label), "_"), "[", 2), un$V1), 'V2']
+
+UNG <- split(tre$tip.label, un[match(lapply(strsplit(as.character(tre$tip.label), "_"), "[", 2), un$V1), 'V2'])
+
+#end additional code
+
+
+
 #midpoint
 mpt <- midpoint(tre)
-isoInfo2 <- split(mpt$tip.label, gsub("\\w+_", "", mpt$tip.label))
-mpt <- groupOTU(mpt, isoInfo)
+mpt <- groupOTU(mpt, UNG) #isoInfo)
 ggtree(mpt, ladderize=FALSE) + geom_treescale(offset=-10) + geom_tippoint(aes(color=group)) + theme(legend.position="right") + geom_text2(aes(subset=!isTip, label=node))
-ggtree(mpt, layout="circular") + geom_tippoint(aes(color=group)) + theme(legend.position="right") 
+ggtree(mpt, layout="circular") + geom_tippoint(aes(color=group)) + #scale_color_manual(values=c("#FFFF5A","#00FFB7", "#5BA0FF", "#2DE200", "#FF9700")) + theme(legend.position="right") 
 
 p <- ggtree(mpt, ladderize=FALSE) + geom_treescale(offset=-10) + geom_tippoint(aes(color=group)) 
 p %>% collapse(node=964) %>% collapse(node=569) %>% collapse(node=1081) %>% collapse(node=991) %>% collapse(node=822) %>% collapse(node=754) %>% collapse(node=574)
 
+#####
+whoCol <- ggtree(mpt, layout="circular") + geom_tippoint(aes(color=group)) + scale_color_manual(values=c("#FFFF5A","#00FFB7", "#5BA0FF", "#2DE200", "#FF9700")) + 
+  theme(panel.background = element_rect(fill="transparent", colour = NA),
+        plot.background = element_rect(fill="transparent", colour = NA))
+
+#Matching Alex map
 
 
-p1 <- ggtree(mpt, ladderize=FALSE) + 
-  geom_treescale(offset=-10) + 
-  geom_tippoint(aes(color=group)) + 
-  geom_cladelabel(node=569, label="L6") +
-  geom_hilight(node=569, fill="darkgreen", alpha=.2) +
-  geom_cladelabel(node=1081, label="L5") +
+
+
+ggsave("cirTreeWHOcol2.eps", whoCol, units="in", width=10, height=10, dpi=300, bg = "transparent")
+#####
+
+tree <- groupClade(mpt, node=c(964,574,754,822, 1081))
+tree <- groupClade(tree, node=1081)
+tree <- groupClade(tree, node=991)
+tree <- groupClade(tree, node=822)
+tree <- groupClade(tree, node=754)
+tree <- groupClade(tree, node=574)
+
+
+p1 <- ggtree(mpt, ladderize=FALSE, layout="circular", aes(color=group)) + 
+  #geom_treescale(offset=-10) + 
+  #geom_tippoint(aes(color=group), size=3) + 
+  #geom_tiplab() +
+  #geom_cladelabel(node=569, label="L6", align=TRUE, offset=.1) +
+  geom_hilight(node=569, fill="green", alpha=.2) +
+  #geom_cladelabel(node=1081, label="L5", align=TRUE, offset=.1) +
   geom_hilight(node=1081, fill="darkred", alpha=.2) +
-  geom_cladelabel(node=991, label="L1") +
+  #geom_cladelabel(node=991, label="L1", align=TRUE, offset=.1) +
   geom_hilight(node=991, fill="pink", alpha=.2) +
-  geom_cladelabel(node=964, label="L7") +
+  #geom_cladelabel(node=964, label="L7", align=TRUE, offset=.1) +
   geom_hilight(node=964, fill="yellow", alpha=.2) +
-  geom_cladelabel(node=822, label="L4") +
+  #geom_cladelabel(node=822, label="L4", align=TRUE, offset=.1) +
   geom_hilight(node=822, fill="red", alpha=.2) +
-  geom_cladelabel(node=754, label="L3") +
+  #geom_cladelabel(node=754, label="L3", align=TRUE, offset=.1) +
   geom_hilight(node=754, fill="purple", alpha=.2) +
-  geom_cladelabel(node=574, label="L2") +
+  #geom_cladelabel(node=574, label="L2", align=TRUE, offset=.1) #+
   geom_hilight(node=574, fill="blue", alpha=.2)
+p1
 
 p2 <- viewClade(p, node=964) + geom_tiplab()
 
@@ -135,32 +176,105 @@ p1 + geom_text2(aes(label=label, subset=!isTip))
 
 
 #Only showing labels with bootstrap less than 100
-d = p1$data
+d = whoCol$data
 d=d[!d$isTip,]
 d$label = as.numeric(d$label)
-d=d[d$label<100 & !is.na(d$label),]
-p1 + geom_text2(data=d, aes(label=label), hjust=-.2)
+d=d[d$label<1 & !is.na(d$label),]
+p1 + 
+  p + geom_text2(data=d, aes(label=label), hjust=-.2) + geom_tiplab(aes(color=group))
 
 
 c1 <- ggtree(mpt, ladderize=FALSE, layout="circular") + 
-  geom_treescale(offset=-10) + 
+  #geom_treescale(offset=-10) + 
   geom_tippoint(aes(color=group)) + 
-  geom_cladelabel(node=569, label="L6") +
+  #geom_cladelabel(node=569, label="L6") +
   geom_hilight(node=569, fill="darkgreen", alpha=.2) +
-  geom_cladelabel(node=1081, label="L5") +
+  #geom_cladelabel(node=1081, label="L5") +
   geom_hilight(node=1081, fill="darkred", alpha=.2) +
-  geom_cladelabel(node=991, label="L1") +
+  #geom_cladelabel(node=991, label="L1") +
   geom_hilight(node=991, fill="pink", alpha=.2) +
-  geom_cladelabel(node=964, label="L7") +
+  #geom_cladelabel(node=964, label="L7") +
   geom_hilight(node=964, fill="yellow", alpha=.2) +
-  geom_cladelabel(node=822, label="L4") +
+  #geom_cladelabel(node=822, label="L4") +
   geom_hilight(node=822, fill="red", alpha=.2) +
-  geom_cladelabel(node=754, label="L3") +
+  #geom_cladelabel(node=754, label="L3") +
   geom_hilight(node=754, fill="purple", alpha=.2) +
-  geom_cladelabel(node=574, label="L2") +
+  #geom_cladelabel(node=574, label="L2") +
   geom_hilight(node=574, fill="blue", alpha=.2)
 c1 
 
 c1 + geom_text2(data=d, aes(label=label), hjust=-.2)
+
+
+```
+
+
+
+```{r}
+mpt2 <- mpt
+mpt2$tip.label <- lapply(strsplit(as.character(mpt2$tip.label), "_"), "[", 1)
+
+
+p1 <- ggtree(mpt2) + geom_tippoint(aes(color=group)) + scale_color_manual(values=c("#FFFF5A","#00FFB7", "#5BA0FF", "#2DE200", "#FF9700")) + 
+  theme(panel.background = element_rect(fill="transparent", colour = NA),
+        plot.background = element_rect(fill="transparent", colour = NA))
+
+
+
+spoligos <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/spoligotyping/sample_spoligotype_lineage.txt", header=F, sep="\t", colClasses = "character")
+
+gts <- setNames(data.frame(spoligos$V1,
+                  do.call(rbind, strsplit(as.character(spoligos$V2),
+                                          split=""))),
+                  c("Sample", paste0(1:43)))
+gts$Sample <- as.character(gts$Sample)
+
+gheatmap(p1, gts, offset = 2, width=0.5)
+
+require(reshape2)
+gts.m <- melt(gts, id.vars="Sample")
+
+z <- ggplot(gts.m, aes(x=variable, y=Sample)) + 
+  geom_tile(aes(fill=value)) 
+z
+
+
+
+tre.dat <- fortify(mpt2)
+tre.dat$panel <- 'Tree'
+
+
+tre.dat$panel <- factor(tre.dat$panel, levels = c("Tree", "Spoligotype"))
+gts.m$x <- tre.dat[match(gts.m$Sample, tre.dat$label), 'x']
+gts.m$y <- tre.dat[match(gts.m$Sample, tre.dat$label), 'y']
+gts.m$panel <- 'Spoligotype'
+gts.m$panel <- factor(gts.m$panel, levels = c("Tree", "Spoligotype"))
+
+
+gts.m$value <- as.numeric(gts.m$value)
+gts.m$variable <- as.numeric(gts.m$variable)
+
+p <- ggplot(mapping=aes(x=x, y=y)) + facet_grid(.~panel, scale="free_x") + theme_tree2()
+p + geom_tree(data=tre.dat) + 
+  geom_tile(data = gts.m, aes(x=variable, y=y, fill=value)) +
+  scale_fill_gradient(low="white", high = "black")
+  
+
+
+
+
+```
+
+
+
+```{r}
+require(dplyr)
+
+sp <- as.data.frame(as.list(aggregate(V4 ~ V2, data=spoligos, FUN=summary)))
+sp.l <- tbl_df(sp)
+
+sp.l <- mutate(sp.l, sum = V4.1+V4.2+V4.3+V4.4+V4.5+V4.6+V4.7)
+
+sp.l <- arrange(sp.l, desc(sum))
 ```
 

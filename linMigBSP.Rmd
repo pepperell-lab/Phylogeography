@@ -1,0 +1,496 @@
+---
+title: "Lineage specific Migrations & BSP"
+author: "Mary O'Neill"
+date: "October 25, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Lineage 1
+
+
+```{r lin1}
+library(ggtree)
+l1t <- read.beast("C:/Users/Mary/PepLab/data/Phylogeography/160222_discrete_lineageSpecific/final/lin1_snps_MCC.tree")
+
+get.fields(l1t)
+
+l1 <- fortify(l1t)
+head(l1)
+
+
+l1.dat <- l1[,c('node', 'parent', 'label', 'location', 'location.set', 'location.set.prob', 'posterior', 'height_median')]
+
+
+l1.dat$location.set.prob = gsub("\\{|\\}", "", l1.dat$location.set.prob)
+l1.dat$location.set = gsub("\\{|\\}", "", l1.dat$location.set)
+
+require(splitstackshape)
+l1long = cSplit(l1.dat, splitCols = c("location.set", "location.set.prob"), sep = c(",", ","), direction = "long")
+l1long <- data.frame(l1long)
+
+un <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/iso2_to_UNreg.txt")
+
+#code to assign to UN region
+l1long$UN <- un[match(l1long$location.set, un$V1), 'V2']
+l1unlong <- aggregate(location.set.prob ~ UN + node, data = l1long, FUN=sum)
+
+l1un.wide = as.data.frame(dcast(l1unlong, node ~ UN))
+l1un.wide[is.na(l1un.wide)] <- 0
+
+l1un.wide$max <- apply(l1un.wide[2:length(l1un.wide)],1,max,na.rm=TRUE)
+#un.wide$maj <- apply(un.wide[2:length(un.wide)],1,which.max)
+
+l1un.wide$major <- colnames(l1un.wide[2:(length(l1un.wide)-1)])[apply(l1un.wide[2:(length(l1un.wide)-1)],1,which.max)]
+
+l1.dat$major <- l1un.wide[match(l1.dat$node, l1un.wide$node), 'major']
+l1.dat$max <- l1un.wide[match(l1.dat$node, l1un.wide$node), 'max']
+
+#write.table(l1.dat, file="C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/161025_lin1_migrations.txt", append=FALSE, quote=FALSE, sep="\t", eol="\n", na="na", row.names=FALSE, col.names=TRUE, qmethod="double")
+
+#Transfer the file above to server and use ipython to rearrange data into another format.
+
+d2 <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/161025_potentialLin1Migrations.txt", header=F, sep="\t", na.strings=c("na","NA"))
+names(d2) <- c('node','parent','node_co','parent_co','co_mig','node_un','parent_un','un_mig','node_med','parent_med','node_posterior','parent_posterior')  
+
+ggplot(d2) + geom_segment(aes(x=`parent_med`, y=node, xend=`node_med`, yend=node, colour = un_mig)) + ylab("Node") + xlab("Range between median heights of parent and child node") + labs(title="Lin1 Migrations based on UN Regions") + scale_colour_manual(values=c('black', 'red'))
+
+ggplot(d2) + geom_segment(aes(x=`parent_med`, y=node, xend=`node_med`, yend=node, colour = co_mig)) + ylab("Node") + xlab("Range between median heights of parent and child node") + labs(title="Lin1 Migrations based on Countries") + scale_colour_manual(values=c('black', 'red')) + geom_smooth()
+
+require(data.table)
+require(cowplot)
+
+#scale factor for lineage 1: 133534.8
+
+d2mod <- d2[!is.na(d2[,'node_med']),]
+d2mod <- d2mod[!is.na(d2mod[,'parent_med']),]
+d2mod$node_med <- d2mod$node_med * 133534.8
+d2mod$parent_med <- d2mod$parent_med * 133534.8
+
+
+
+rr <- range(d2mod[,c('node_med', 'parent_med')])
+bb <- seq(floor(rr[1]),ceiling(rr[2]))
+mm <- apply(d2mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+
+
+cl1 <- apply(d2mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+L1 <- apply(cl1,1,sum)
+cl1un <- apply(d2mod[d2mod$un_mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+L1un <- apply(cl1un,1,sum)
+cl1co <- apply(d2mod[d2mod$co_mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+L1co <- apply(cl1co,1,sum)
+
+lin1 <- cbind(data.frame(bb), data.frame(L1), data.frame(L1co), data.frame(L1un))
+lin1.m <- melt(lin1, id.vars="bb")
+
+p1 <- ggplot(lin1.m) + geom_line(aes(bb, value, colour=variable)) + theme(legend.position=c(.75,.75), legend.title=element_blank()) + xlab("") + ylab("Number")
+
+
+###BSP
+
+l1.bsp <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/160222_discrete_lineageSpecific/final/lin1_BSP.data", skip=1, header=T)
+
+l1.bsp$TimeScaled <- l1.bsp$Time * 133534.8
+
+p3 <- ggplot(l1.bsp) + geom_line(aes(TimeScaled, Mean), colour="blue") + geom_line(aes(TimeScaled, Median), colour="red") + geom_line(aes(TimeScaled, Upper), colour="gray") + geom_line(aes(TimeScaled, Lower), colour="gray") + xlab("Years Before Present") + ylab("Eff Pop Size")
+
+
+p2 <- ggplot(lin1) + geom_line(aes(bb, L1co/L1, colour = "green")) + geom_line(aes(bb, L1un/L1, colour = "blue")) + theme(legend.position = "none") + xlab("") + ylab("Mig/Possible")
+
+
+plot_grid(
+  p1 + xlim(0,2500),
+  p2 + xlim(0,2500),
+  p3 + xlim(0,2500),
+  ncol=1, align = "h"
+)
+
+```
+
+##Lineage 3
+
+```{r lin3}
+l2t <- read.beast("C:/Users/Mary/PepLab/data/Phylogeography/160222_discrete_lineageSpecific/final/lin3_snps_MCC.tree")
+
+get.fields(l2t)
+
+l2 <- fortify(l2t)
+head(l2)
+
+
+l2.dat <- l2[,c('node', 'parent', 'label', 'location', 'location.set', 'location.set.prob', 'posterior', 'height_median')]
+
+
+l2.dat$location.set.prob = gsub("\\{|\\}", "", l2.dat$location.set.prob)
+l2.dat$location.set = gsub("\\{|\\}", "", l2.dat$location.set)
+
+l2long = cSplit(l2.dat, splitCols = c("location.set", "location.set.prob"), sep = c(",", ","), direction = "long")
+l2long <- data.frame(l2long)
+
+#code to assign to UN region
+l2long$UN <- un[match(l2long$location.set, un$V1), 'V2']
+l2unlong <- aggregate(location.set.prob ~ UN + node, data = l2long, FUN=sum)
+
+l2un.wide = as.data.frame(dcast(l2unlong, node ~ UN))
+l2un.wide[is.na(l2un.wide)] <- 0
+
+l2un.wide$max <- apply(l2un.wide[2:length(l2un.wide)],1,max,na.rm=TRUE)
+#un.wide$maj <- apply(un.wide[2:length(un.wide)],1,which.max)
+
+l2un.wide$major <- colnames(l2un.wide[2:(length(l2un.wide)-1)])[apply(l2un.wide[2:(length(l2un.wide)-1)],1,which.max)]
+
+l2.dat$major <- l2un.wide[match(l2.dat$node, l2un.wide$node), 'major']
+l2.dat$max <- l2un.wide[match(l2.dat$node, l2un.wide$node), 'max']
+
+#write.table(l2.dat, file="C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/161026_lin3_migrations.txt", append=FALSE, quote=FALSE, sep="\t", eol="\n", na="na", row.names=FALSE, col.names=TRUE, qmethod="double")
+
+#Transfer the file above to server and use ipython to rearrange data into another format.
+
+d3 <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/161026_potentiallin3Migrations.txt", header=F, sep="\t", na.strings=c("na","NA"))
+names(d3) <- c('node','parent','node_co','parent_co','co_mig','node_un','parent_un','un_mig','node_med','parent_med','node_posterior','parent_posterior')  
+
+ggplot(d3) + geom_segment(aes(x=`parent_med`, y=node, xend=`node_med`, yend=node, colour = un_mig)) + ylab("Node") + xlab("Range between median heights of parent and child node") + labs(title="Lin1 Migrations based on UN Regions") + scale_colour_manual(values=c('black', 'red'))
+
+ggplot(d3) + geom_segment(aes(x=`parent_med`, y=node, xend=`node_med`, yend=node, colour = co_mig)) + ylab("Node") + xlab("Range between median heights of parent and child node") + labs(title="Lin1 Migrations based on Countries") + scale_colour_manual(values=c('black', 'red')) + geom_smooth()
+
+require(data.table)
+require(cowplot)
+
+#scale factor for lineage 2: 129142.2
+
+d3mod <- d3[!is.na(d3[,'node_med']),]
+d3mod <- d3mod[!is.na(d3mod[,'parent_med']),]
+d3mod$node_med <- d3mod$node_med * 129142.2
+d3mod$parent_med <- d3mod$parent_med * 129142.2
+
+
+
+rr <- range(d3mod[,c('node_med', 'parent_med')])
+bb <- seq(floor(rr[1]),ceiling(rr[2]))
+mm <- apply(d3mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+
+
+cl2 <- apply(d3mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l2 <- apply(cl2,1,sum)
+cl2un <- apply(d3mod[d3mod$un_mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l2un <- apply(cl2un,1,sum)
+cl2co <- apply(d3mod[d3mod$co_mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l2co <- apply(cl2co,1,sum)
+
+lin3 <- cbind(data.frame(bb), data.frame(l2), data.frame(l2co), data.frame(l2un))
+lin3.m <- melt(lin3, id.vars="bb")
+
+p1 <- ggplot(lin3.m) + geom_line(aes(bb, value, colour=variable)) + theme(legend.position=c(.75,.75), legend.title=element_blank()) + xlab("") + ylab("Number")
+
+
+###BSP
+
+l2.bsp <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/160222_discrete_lineageSpecific/final/lin3_BSP.data", skip=1, header=T)
+
+l2.bsp$TimeScaled <- l2.bsp$Time * 129142.2
+
+p3 <- ggplot(l2.bsp) + geom_line(aes(TimeScaled, Mean), colour="blue") + geom_line(aes(TimeScaled, Median), colour="red") + geom_line(aes(TimeScaled, Upper), colour="gray") + geom_line(aes(TimeScaled, Lower), colour="gray") + xlab("Years Before Present") + ylab("Eff Pop Size")
+
+
+p2 <- ggplot(lin3) + geom_line(aes(bb, l2co/l2, colour = "green")) + geom_line(aes(bb, l2un/l2, colour = "blue")) + theme(legend.position = "none") + xlab("") + ylab("Mig/Possible")
+
+
+plot_grid(
+  p1 + xlim(0,2100),
+  p2 + xlim(0,2100),
+  p3 + xlim(0,2100),
+  ncol=1, align = "h"
+)
+
+```
+
+##Lineage 3
+
+```{r lin3}
+l3t <- read.beast("C:/Users/Mary/PepLab/data/Phylogeography/160222_discrete_lineageSpecific/final/lin3_snps_MCC.tree")
+
+get.fields(l3t)
+
+l3 <- fortify(l3t)
+head(l3)
+
+
+l3.dat <- l3[,c('node', 'parent', 'label', 'location', 'location.set', 'location.set.prob', 'posterior', 'height_median')]
+
+
+l3.dat$location.set.prob = gsub("\\{|\\}", "", l3.dat$location.set.prob)
+l3.dat$location.set = gsub("\\{|\\}", "", l3.dat$location.set)
+
+l3long = cSplit(l3.dat, splitCols = c("location.set", "location.set.prob"), sep = c(",", ","), direction = "long")
+l3long <- data.frame(l3long)
+
+#code to assign to UN region
+l3long$UN <- un[match(l3long$location.set, un$V1), 'V2']
+l3unlong <- aggregate(location.set.prob ~ UN + node, data = l3long, FUN=sum)
+
+l3un.wide = as.data.frame(dcast(l3unlong, node ~ UN))
+l3un.wide[is.na(l3un.wide)] <- 0
+
+l3un.wide$max <- apply(l3un.wide[2:length(l3un.wide)],1,max,na.rm=TRUE)
+#un.wide$maj <- apply(un.wide[2:length(un.wide)],1,which.max)
+
+l3un.wide$major <- colnames(l3un.wide[2:(length(l3un.wide)-1)])[apply(l3un.wide[2:(length(l3un.wide)-1)],1,which.max)]
+
+l3.dat$major <- l3un.wide[match(l3.dat$node, l3un.wide$node), 'major']
+l3.dat$max <- l3un.wide[match(l3.dat$node, l3un.wide$node), 'max']
+
+#write.table(l3.dat, file="C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/161026_lin3_migrations.txt", append=FALSE, quote=FALSE, sep="\t", eol="\n", na="na", row.names=FALSE, col.names=TRUE, qmethod="double")
+
+#Transfer the file above to server and use ipython to rearrange data into another format.
+
+d3 <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/161026_potentiallin3Migrations.txt", header=F, sep="\t", na.strings=c("na","NA"))
+names(d3) <- c('node','parent','node_co','parent_co','co_mig','node_un','parent_un','un_mig','node_med','parent_med','node_posterior','parent_posterior')  
+
+ggplot(d3) + geom_segment(aes(x=`parent_med`, y=node, xend=`node_med`, yend=node, colour = un_mig)) + ylab("Node") + xlab("Range between median heights of parent and child node") + labs(title="Lin1 Migrations based on UN Regions") + scale_colour_manual(values=c('black', 'red'))
+
+ggplot(d3) + geom_segment(aes(x=`parent_med`, y=node, xend=`node_med`, yend=node, colour = co_mig)) + ylab("Node") + xlab("Range between median heights of parent and child node") + labs(title="Lin1 Migrations based on Countries") + scale_colour_manual(values=c('black', 'red')) + geom_smooth()
+
+
+#scale factor for lineage 3: 85731.8
+
+d3mod <- d3[!is.na(d3[,'node_med']),]
+d3mod <- d3mod[!is.na(d3mod[,'parent_med']),]
+d3mod$node_med <- d3mod$node_med * 85731.8
+d3mod$parent_med <- d3mod$parent_med * 85731.8
+
+
+
+rr <- range(d3mod[,c('node_med', 'parent_med')])
+bb <- seq(floor(rr[1]),ceiling(rr[2]))
+mm <- apply(d3mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+
+
+cl3 <- apply(d3mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l3 <- apply(cl3,1,sum)
+cl3un <- apply(d3mod[d3mod$un_mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l3un <- apply(cl3un,1,sum)
+cl3co <- apply(d3mod[d3mod$co_mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l3co <- apply(cl3co,1,sum)
+
+lin3 <- cbind(data.frame(bb), data.frame(l3), data.frame(l3co), data.frame(l3un))
+lin3.m <- melt(lin3, id.vars="bb")
+
+p1 <- ggplot(lin3.m) + geom_line(aes(bb, value, colour=variable)) + theme(legend.position=c(.75,.75), legend.title=element_blank()) + xlab("") + ylab("Number")
+
+
+###BSP
+
+l3.bsp <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/160222_discrete_lineageSpecific/final/lin3_BSP.data", skip=1, header=T)
+
+l3.bsp$TimeScaled <- l3.bsp$Time * 85731.8
+
+p3 <- ggplot(l3.bsp) + geom_line(aes(TimeScaled, Mean), colour="blue") + geom_line(aes(TimeScaled, Median), colour="red") + geom_line(aes(TimeScaled, Upper), colour="gray") + geom_line(aes(TimeScaled, Lower), colour="gray") + xlab("Years Before Present") + ylab("Eff Pop Size")
+
+
+p2 <- ggplot(lin3) + geom_line(aes(bb, l3co/l3, colour = "green")) + geom_line(aes(bb, l3un/l3, colour = "blue")) + theme(legend.position = "none") + xlab("") + ylab("Mig/Possible")
+
+
+plot_grid(
+  p1 + xlim(0,1600),
+  p2 + xlim(0,1600),
+  p3 + xlim(0,1600),
+  ncol=1, align = "h"
+)
+
+```
+
+##Lineage 3
+
+```{r lin3}
+l2t <- read.beast("C:/Users/Mary/PepLab/data/Phylogeography/160222_discrete_lineageSpecific/final/lin3_snps_MCC.tree")
+
+get.fields(l2t)
+
+l2 <- fortify(l2t)
+head(l2)
+
+
+l2.dat <- l2[,c('node', 'parent', 'label', 'location', 'location.set', 'location.set.prob', 'posterior', 'height_median')]
+
+
+l2.dat$location.set.prob = gsub("\\{|\\}", "", l2.dat$location.set.prob)
+l2.dat$location.set = gsub("\\{|\\}", "", l2.dat$location.set)
+
+l2long = cSplit(l2.dat, splitCols = c("location.set", "location.set.prob"), sep = c(",", ","), direction = "long")
+l2long <- data.frame(l2long)
+
+#code to assign to UN region
+l2long$UN <- un[match(l2long$location.set, un$V1), 'V2']
+l2unlong <- aggregate(location.set.prob ~ UN + node, data = l2long, FUN=sum)
+
+l2un.wide = as.data.frame(dcast(l2unlong, node ~ UN))
+l2un.wide[is.na(l2un.wide)] <- 0
+
+l2un.wide$max <- apply(l2un.wide[2:length(l2un.wide)],1,max,na.rm=TRUE)
+#un.wide$maj <- apply(un.wide[2:length(un.wide)],1,which.max)
+
+l2un.wide$major <- colnames(l2un.wide[2:(length(l2un.wide)-1)])[apply(l2un.wide[2:(length(l2un.wide)-1)],1,which.max)]
+
+l2.dat$major <- l2un.wide[match(l2.dat$node, l2un.wide$node), 'major']
+l2.dat$max <- l2un.wide[match(l2.dat$node, l2un.wide$node), 'max']
+
+#write.table(l2.dat, file="C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/161026_lin3_migrations.txt", append=FALSE, quote=FALSE, sep="\t", eol="\n", na="na", row.names=FALSE, col.names=TRUE, qmethod="double")
+
+#Transfer the file above to server and use ipython to rearrange data into another format.
+
+d3 <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/161026_potentiallin3Migrations.txt", header=F, sep="\t", na.strings=c("na","NA"))
+names(d3) <- c('node','parent','node_co','parent_co','co_mig','node_un','parent_un','un_mig','node_med','parent_med','node_posterior','parent_posterior')  
+
+ggplot(d3) + geom_segment(aes(x=`parent_med`, y=node, xend=`node_med`, yend=node, colour = un_mig)) + ylab("Node") + xlab("Range between median heights of parent and child node") + labs(title="Lin1 Migrations based on UN Regions") + scale_colour_manual(values=c('black', 'red'))
+
+ggplot(d3) + geom_segment(aes(x=`parent_med`, y=node, xend=`node_med`, yend=node, colour = co_mig)) + ylab("Node") + xlab("Range between median heights of parent and child node") + labs(title="Lin1 Migrations based on Countries") + scale_colour_manual(values=c('black', 'red')) + geom_smooth()
+
+require(data.table)
+require(cowplot)
+
+#scale factor for lineage 2: 129142.2
+
+d3mod <- d3[!is.na(d3[,'node_med']),]
+d3mod <- d3mod[!is.na(d3mod[,'parent_med']),]
+d3mod$node_med <- d3mod$node_med * 129142.2
+d3mod$parent_med <- d3mod$parent_med * 129142.2
+
+
+
+rr <- range(d3mod[,c('node_med', 'parent_med')])
+bb <- seq(floor(rr[1]),ceiling(rr[2]))
+mm <- apply(d3mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+
+
+cl2 <- apply(d3mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l2 <- apply(cl2,1,sum)
+cl2un <- apply(d3mod[d3mod$un_mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l2un <- apply(cl2un,1,sum)
+cl2co <- apply(d3mod[d3mod$co_mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l2co <- apply(cl2co,1,sum)
+
+lin3 <- cbind(data.frame(bb), data.frame(l2), data.frame(l2co), data.frame(l2un))
+lin3.m <- melt(lin3, id.vars="bb")
+
+p1 <- ggplot(lin3.m) + geom_line(aes(bb, value, colour=variable)) + theme(legend.position=c(.75,.75), legend.title=element_blank()) + xlab("") + ylab("Number")
+
+
+###BSP
+
+l2.bsp <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/160222_discrete_lineageSpecific/final/lin3_BSP.data", skip=1, header=T)
+
+l2.bsp$TimeScaled <- l2.bsp$Time * 129142.2
+
+p3 <- ggplot(l2.bsp) + geom_line(aes(TimeScaled, Mean), colour="blue") + geom_line(aes(TimeScaled, Median), colour="red") + geom_line(aes(TimeScaled, Upper), colour="gray") + geom_line(aes(TimeScaled, Lower), colour="gray") + xlab("Years Before Present") + ylab("Eff Pop Size")
+
+
+p2 <- ggplot(lin3) + geom_line(aes(bb, l2co/l2, colour = "green")) + geom_line(aes(bb, l2un/l2, colour = "blue")) + theme(legend.position = "none") + xlab("") + ylab("Mig/Possible")
+
+
+plot_grid(
+  p1 + xlim(0,2100),
+  p2 + xlim(0,2100),
+  p3 + xlim(0,2100),
+  ncol=1, align = "h"
+)
+
+```
+
+##Lineage 4
+
+```{r lin4}
+l4t <- read.beast("C:/Users/Mary/PepLab/data/Phylogeography/160222_discrete_lineageSpecific/final/lin4_snps_MCC.tree")
+
+get.fields(l4t)
+
+l4 <- fortify(l4t)
+head(l4)
+
+
+l4.dat <- l4[,c('node', 'parent', 'label', 'location', 'location.set', 'location.set.prob', 'posterior', 'height_median')]
+
+
+l4.dat$location.set.prob = gsub("\\{|\\}", "", l4.dat$location.set.prob)
+l4.dat$location.set = gsub("\\{|\\}", "", l4.dat$location.set)
+
+l4long = cSplit(l4.dat, splitCols = c("location.set", "location.set.prob"), sep = c(",", ","), direction = "long")
+l4long <- data.frame(l4long)
+
+#code to assign to UN region
+l4long$UN <- un[match(l4long$location.set, un$V1), 'V2']
+l4unlong <- aggregate(location.set.prob ~ UN + node, data = l4long, FUN=sum)
+
+l4un.wide = as.data.frame(dcast(l4unlong, node ~ UN))
+l4un.wide[is.na(l4un.wide)] <- 0
+
+l4un.wide$max <- apply(l4un.wide[2:length(l4un.wide)],1,max,na.rm=TRUE)
+#un.wide$maj <- apply(un.wide[2:length(un.wide)],1,which.max)
+
+l4un.wide$major <- colnames(l4un.wide[2:(length(l4un.wide)-1)])[apply(l4un.wide[2:(length(l4un.wide)-1)],1,which.max)]
+
+l4.dat$major <- l4un.wide[match(l4.dat$node, l4un.wide$node), 'major']
+l4.dat$max <- l4un.wide[match(l4.dat$node, l4un.wide$node), 'max']
+
+#write.table(l4.dat, file="C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/161026_lin4_migrations.txt", append=FALSE, quote=FALSE, sep="\t", eol="\n", na="na", row.names=FALSE, col.names=TRUE, qmethod="double")
+
+#Transfer the file above to server and use ipython to rearrange data into another format.
+
+d4 <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/161026_potentiallin4Migrations.txt", header=F, sep="\t", na.strings=c("na","NA"))
+names(d4) <- c('node','parent','node_co','parent_co','co_mig','node_un','parent_un','un_mig','node_med','parent_med','node_posterior','parent_posterior')  
+
+ggplot(d4) + geom_segment(aes(x=`parent_med`, y=node, xend=`node_med`, yend=node, colour = un_mig)) + ylab("Node") + xlab("Range between median heights of parent and child node") + labs(title="Lin1 Migrations based on UN Regions") + scale_colour_manual(values=c('black', 'red'))
+
+ggplot(d4) + geom_segment(aes(x=`parent_med`, y=node, xend=`node_med`, yend=node, colour = co_mig)) + ylab("Node") + xlab("Range between median heights of parent and child node") + labs(title="Lin1 Migrations based on Countries") + scale_colour_manual(values=c('black', 'red')) + geom_smooth()
+
+
+#scale factor for lineage 3: 142304.5
+
+d4mod <- d4[!is.na(d4[,'node_med']),]
+d4mod <- d4mod[!is.na(d4mod[,'parent_med']),]
+d4mod$node_med <- d4mod$node_med * 142304.5
+d4mod$parent_med <- d4mod$parent_med * 142304.5
+
+
+
+rr <- range(d4mod[,c('node_med', 'parent_med')])
+bb <- seq(floor(rr[1]),ceiling(rr[2]))
+mm <- apply(d4mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+
+
+cl4 <- apply(d4mod[,c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l4 <- apply(cl4,1,sum)
+cl4un <- apply(d4mod[d4mod$un_mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l4un <- apply(cl4un,1,sum)
+cl4co <- apply(d4mod[d4mod$co_mig == "Yes",c('parent_med', 'node_med')],1,function(x) bb %in% seq(floor(x["node_med"]),ceiling(x["parent_med"])))
+l4co <- apply(cl4co,1,sum)
+
+lin4 <- cbind(data.frame(bb), data.frame(l4), data.frame(l4co), data.frame(l4un))
+lin4.m <- melt(lin4, id.vars="bb")
+
+p1 <- ggplot(lin4.m) + geom_line(aes(bb, value, colour=variable)) + theme(legend.position=c(.75,.75), legend.title=element_blank()) + xlab("") + ylab("Number")
+
+
+###BSP
+
+l4.bsp <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/160222_discrete_lineageSpecific/final/lin4_BSP.data", skip=1, header=T)
+
+l4.bsp$TimeScaled <- l4.bsp$Time * 142304.5
+
+p3 <- ggplot(l4.bsp) + geom_line(aes(TimeScaled, Mean), colour="blue") + geom_line(aes(TimeScaled, Median), colour="red") + geom_line(aes(TimeScaled, Upper), colour="gray") + geom_line(aes(TimeScaled, Lower), colour="gray") + xlab("Years Before Present") + ylab("Eff Pop Size")
+
+
+p2 <- ggplot(lin4) + geom_line(aes(bb, l4co/l4, colour = "green")) + geom_line(aes(bb, l4un/l4, colour = "blue")) + theme(legend.position = "none") + xlab("") + ylab("Mig/Possible")
+
+
+plot_grid(
+  p1 + xlim(0,2000),
+  p2 + xlim(0,2000),
+  p3 + xlim(0,2000),
+  ncol=1, align = "h"
+)
+
+```

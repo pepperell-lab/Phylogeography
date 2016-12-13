@@ -1,0 +1,395 @@
+---
+title: "UN BEAST"
+author: "Mary O'Neill"
+date: "September 8, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(ggplot2)
+require(ape)
+#source("https://bioconductor.org/biocLite.R")
+#biocLite("ggtree")
+require("ggtree")
+require(phytools)
+require(phangorn)
+require(reshape2)
+require(splitstackshape)
+setwd("C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/")
+```
+
+## BEAST tree colored by UN regions
+
+
+```{r UNtree}
+tre <- read.beast("Mtb.SNPs.2016.02.23.GTR+G.Const.Strict.DiscreteSym.100m.Combined.MCC.tree")
+
+get.fields(tre)
+
+ggtree(tre, ladderize=FALSE) + geom_tippoint()
+
+
+tre_data <- fortify(tre)
+head(tre_data)
+
+
+#subset the tip data
+tre_tips <- subset(tre_data, isTip == TRUE, c(label, Geography))
+
+#split the tips by country
+tre_iso = split(tre_tips$label, tre_tips$Geography)
+
+tre.g <- groupOTU(tre, tre_iso)
+
+t <- ggtree(tre.g, ladderize=FALSE) + geom_tippoint(aes(color=group)) + geom_text2(aes(label=Geography))
+t
+
+un <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/iso2_to_UNreg.txt")
+
+#subset the tip data
+tre_tips <- subset(tre_data, isTip == TRUE, c(label, Geography))
+
+#match the country to the UN regions
+tre_tips$un <- un[match(tre_tips$Geography, un$V1), 'V2']
+
+#split the tips by country
+tre_groups = split(tre_tips$label, tre_tips$un)
+
+#group tree by UN region
+tre.g <- groupOTU(tre, tre_groups)
+
+
+
+t <- ggtree(tre.g, ladderize=FALSE) + geom_tippoint(aes(color=group)) + geom_tiplab(aes(color=group)) #+ scale_color_viridis(option="inferno", discrete=TRUE, begin = 0, end = 1) #+ geom_tiplab() # + geom_text2(aes(label=un))
+t
+
+
+df <- tre_data
+df <- df[df$isTip == FALSE,]
+df <- df[,c('node', 'Geography.set', 'Geography.set.prob', 'posterior')]
+df <- df[df$posterior >= 0.5,] #remove nodes with posterior prob limit < 0.5 (weren't annotated)
+
+
+df$Geography.set.prob = gsub("\\{|\\}", "", df$Geography.set.prob)
+df$Geography.set = gsub("\\{|\\}", "", df$Geography.set)
+
+dflong = cSplit(df, splitCols = c("Geography.set", "Geography.set.prob"), sep = c(",", ","), direction = "long")
+dflong <- data.frame(dflong)
+dflong <- dflong[,-4]
+
+#code to assign to UN region
+dflong$UN <- un[match(dflong$Geography.set, un$V1), 'V2']
+unlong <- aggregate(Geography.set.prob ~ UN + node, data = dflong, FUN=sum)
+
+
+df.wide = as.data.frame(dcast(dflong, node ~ Geography.set))
+df.wide[is.na(df.wide)] <- 0
+
+
+un.wide = as.data.frame(dcast(unlong, node ~ UN))
+un.wide[is.na(un.wide)] <- 0
+
+
+#colSums(df.wide)[order(colSums(df.wide))]
+#lab2 <- df.wide[,c('node','RU','IN','VN','ET','PK','CN','ML','UG','IR','MW','GH','UZ','SZ','NP','EG')]
+#lab2$other <- 1-rowSums(lab2[,2:15])
+
+
+
+pies <- nodepie(un.wide, cols=2:(length(un.wide)-1), alpha=.6)
+tp <- inset(t, pies, height=0.01, width=0.01)
+tp
+
+#ggsave("160912_UN_pieSize4.eps", plot=tp, width=60, height=120, limitsize = FALSE)
+
+
+
+
+#t2 <- ggtree(tre.g, ladderize=FALSE) + geom_text(aes(label=node))
+
+
+
+#tre.g@phylo$edge.length <- tre.g@phylo$edge.length * 133535
+
+cp <- ggtree(tre.g, ladderize=FALSE) %>% collapse(node=564) %>% collapse(node=744) %>% collapse(node=812) %>% collapse(node=954) %>% collapse(node=981) %>% collapse(1072) %>% collapse(1102)
+
+#564 == Lin 2
+#744 == Lin 3
+#812 == Lin 4
+#954 == Lin 7
+#981 == Lin 1
+#1102 == Lin 5
+#1072 == Lin 6
+
+
+cp + theme_tree2()
+```
+
+
+## Migration events
+
+```{mig}
+
+mig <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/United_Nations/migrations_from_MCC.txt")
+names(mig) <- c("node", "Geo-node", "parent", "Geo-parent", "parent_low_0.95_HPD", "child_high_0.95_HPD")
+
+
+ggplot(mig) + geom_segment(aes(x=parent_low_0.95_HPD, y=node, xend=child_high_0.95_HPD, yend=node))
+
+```
+
+
+
+## Lineage 1
+
+```{r lin1}
+lin1 <- read.beast("C:/Users/Mary/PepLab/data/Phylogeography/160222_discrete_lineageSpecific/final/lin1_snps_MCC.tree")
+
+get.fields(lin1)
+
+t1 <- ggtree(lin1, ladderize=FALSE) + geom_tippoint()
+t1
+
+lin1_data <- fortify(lin1)
+head(lin1_data)
+
+
+#subset the tip data
+lin1_tips <- subset(lin1_data, isTip == TRUE, c(label, location))
+
+#split the tips by country
+lin1_iso = split(lin1_tips$label, lin1_tips$location)
+
+#match the country to the UN regions
+lin1_tips$un <- un[match(lin1_tips$location, un$V1), 'V2']
+
+#split the tips by country
+lin1_groups = split(lin1_tips$label, lin1_tips$un)
+
+#group tree by UN region
+lin1.g <- groupOTU(lin1, lin1_groups)
+
+lin1.g@phylo$edge.length <- lin1@phylo$edge.length * 133534.8
+midpoint(lin1.g@phylo)
+
+t1.g <- ggtree(lin1.g, ladderize=FALSE) + geom_tippoint(aes(color=group)) + geom_tiplab(aes(color=group)) + theme_tree2()
+t1.g
+
+
+df.1 <- lin1_data
+df.1 <- df.1[df.1$isTip == FALSE,]
+df.1 <- df.1[,-c(2:24)]
+df.1 <- df.1[df.1$posterior >= 0.5,] #remove nodes with posterior prob limit < 0.5 (weren't annotated)
+df.1 <- df.1[,-4]
+
+df.1$location.set.prob = gsub("\\{|\\}", "", df.1$location.set.prob)
+df.1$location.set = gsub("\\{|\\}", "", df.1$location.set)
+
+df.1.long = cSplit(df.1, splitCols = c("location.set", "location.set.prob"), sep = c(",", ","), direction = "long")
+
+#code to assign to UN region
+df.1.long$UN <- un[match(df.1.long$location.set, un$V1), 'V2']
+un.1.long <- aggregate(location.set.prob ~ UN + node, data = df.1.long, FUN=sum)
+
+un.1.wide = as.data.frame(dcast(un.1.long, node ~ UN))
+un.1.wide[is.na(un.1.wide)] <- 0
+
+
+pies1 <- nodepie(un.1.wide, cols=2:(length(un.1.wide))) 
+tp1 <- inset(t1.g, pies1, height=0.03, width=0.03)
+tp1 
+
+ggsave("160919_UN_lin1.pdf", plot=tp1, width=14, height=16)
+
+```
+
+
+## Lineage 2
+
+```{r lin2}
+lin2 <- read.beast("C:/Users/Mary/PepLab/data/Phylogeography/160222_discrete_lineageSpecific/final/lin2_snps_MCC.tree")
+
+get.fields(lin2)
+
+t2 <- ggtree(lin2, ladderize=FALSE) + geom_tippoint()
+t2
+
+lin2_data <- fortify(lin2)
+head(lin2_data)
+
+
+#subset the tip data
+lin2_tips <- subset(lin2_data, isTip == TRUE, c(label, location))
+
+#split the tips by country
+lin2_iso = split(lin2_tips$label, lin2_tips$location)
+
+#match the country to the UN regions
+lin2_tips$un <- un[match(lin2_tips$location, un$V1), 'V2']
+
+#split the tips by country
+lin2_groups = split(lin2_tips$label, lin2_tips$un)
+
+#group tree by UN region
+lin2.g <- groupOTU(lin2, lin2_groups)
+
+lin2.g@phylo$edge.length <- lin2@phylo$edge.length * 129142.2
+midpoint(lin2.g@phylo)
+
+t2.g <- ggtree(lin2.g, ladderize=FALSE) + geom_tippoint(aes(color=group)) + geom_tiplab(aes(color=group)) + theme_tree2()
+t2.g
+
+df.2 <- lin2_data
+df.2 <- df.2[df.2$isTip == FALSE,]
+df.2 <- df.2[,-c(2:24)]
+df.2 <- df.2[df.2$posterior >= 0.5,] #remove nodes with posterior prob limit < 0.5 (weren't annotated)
+df.2 <- df.2[,-4]
+
+df.2$location.set.prob = gsub("\\{|\\}", "", df.2$location.set.prob)
+df.2$location.set = gsub("\\{|\\}", "", df.2$location.set)
+
+df.2.long = cSplit(df.2, splitCols = c("location.set", "location.set.prob"), sep = c(",", ","), direction = "long")
+
+#code to assign to UN region
+df.2.long$UN <- un[match(df.2.long$location.set, un$V1), 'V2']
+un.2.long <- aggregate(location.set.prob ~ UN + node, data = df.2.long, FUN=sum)
+
+un.2.wide = as.data.frame(dcast(un.2.long, node ~ UN))
+un.2.wide[is.na(un.2.wide)] <- 0
+
+
+pies2 <- nodepie(un.2.wide, cols=2:(length(un.2.wide))) 
+tp2 <- inset(t2.g, pies2, height=0.03, width=0.03)
+tp2 
+
+ggsave("160919_lin2.pdf", plot=tp2, width=14, height=30)
+
+```
+
+## Lineage 3
+
+```{r lin3}
+lin3 <- read.beast("C:/Users/Mary/PepLab/data/Phylogeography/160222_discrete_lineageSpecific/final/lin3_snps_MCC.tree")
+
+get.fields(lin3)
+
+t3 <- ggtree(lin3, ladderize=FALSE) + geom_tippoint()
+t3
+
+lin3_data <- fortify(lin3)
+head(lin3_data)
+
+
+#subset the tip data
+lin3_tips <- subset(lin3_data, isTip == TRUE, c(label, location))
+
+#split the tips by country
+lin3_iso = split(lin3_tips$label, lin3_tips$location)
+
+#match the country to the UN regions
+lin3_tips$un <- un[match(lin3_tips$location, un$V1), 'V2']
+
+#split the tips by country
+lin3_groups = split(lin3_tips$label, lin3_tips$un)
+
+#group tree by UN region
+lin3.g <- groupOTU(lin3, lin3_groups)
+
+lin3.g@phylo$edge.length <- lin3@phylo$edge.length * 85731.8
+midpoint(lin3.g@phylo)
+
+t3.g <- ggtree(lin3.g, ladderize=FALSE) + geom_tippoint(aes(color=group)) + geom_tiplab(aes(color=group)) + theme_tree2()
+t3.g
+
+
+df.3 <- lin3_data
+df.3 <- df.3[df.3$isTip == FALSE,]
+df.3 <- df.3[,-c(2:24)]
+df.3 <- df.3[df.3$posterior >= 0.5,] #remove nodes with posterior prob limit < 0.5 (weren't annotated)
+df.3 <- df.3[,-4]
+
+df.3$location.set.prob = gsub("\\{|\\}", "", df.3$location.set.prob)
+df.3$location.set = gsub("\\{|\\}", "", df.3$location.set)
+
+df.3.long = cSplit(df.3, splitCols = c("location.set", "location.set.prob"), sep = c(",", ","), direction = "long")
+
+#code to assign to UN region
+df.3.long$UN <- un[match(df.3.long$location.set, un$V1), 'V2']
+un.3.long <- aggregate(location.set.prob ~ UN + node, data = df.3.long, FUN=sum)
+
+un.3.wide = as.data.frame(dcast(un.3.long, node ~ UN))
+un.3.wide[is.na(un.3.wide)] <- 0
+
+
+pies3 <- nodepie(un.3.wide, cols=2:(length(un.3.wide))) 
+tp3 <- inset(t3.g, pies3, height=0.03, width=0.03)
+
+tp3 
+ggsave("160919_lin3.pdf", plot=tp3, width=14, height=15)
+
+```
+
+
+## Lineage 4
+
+```{r lin4}
+lin4 <- read.beast("C:/Users/Mary/PepLab/data/Phylogeography/160222_discrete_lineageSpecific/final/lin4_snps_MCC.tree")
+
+get.fields(lin4)
+
+t4 <- ggtree(lin4, ladderize=FALSE) + geom_tippoint()
+t4
+
+lin4_data <- fortify(lin4)
+head(lin4_data)
+
+
+#subset the tip data
+lin4_tips <- subset(lin4_data, isTip == TRUE, c(label, location))
+
+#split the tips by country
+lin4_iso = split(lin4_tips$label, lin4_tips$location)
+
+#match the country to the UN regions
+lin4_tips$un <- un[match(lin4_tips$location, un$V1), 'V2']
+
+#split the tips by country
+lin4_groups = split(lin4_tips$label, lin4_tips$un)
+
+#group tree by UN region
+lin4.g <- groupOTU(lin4, lin4_groups)
+
+lin4.g@phylo$edge.length <- lin4@phylo$edge.length * 142304.5
+midpoint(lin4.g@phylo)
+
+t4.g <- ggtree(lin4.g, ladderize=FALSE) + geom_tippoint(aes(color=group)) + geom_tiplab(aes(color=group)) + theme_tree2()
+t4.g
+
+
+df.4 <- lin4_data
+df.4 <- df.4[df.4$isTip == FALSE,]
+df.4 <- df.4[,-c(2:24)]
+df.4 <- df.4[df.4$posterior >= 0.5,] #remove nodes with posterior prob limit < 0.5 (weren't annotated)
+df.4 <- df.4[,-4]
+
+df.4$location.set.prob = gsub("\\{|\\}", "", df.4$location.set.prob)
+df.4$location.set = gsub("\\{|\\}", "", df.4$location.set)
+
+df.4.long = cSplit(df.4, splitCols = c("location.set", "location.set.prob"), sep = c(",", ","), direction = "long")
+
+#code to assign to UN region
+df.4.long$UN <- un[match(df.4.long$location.set, un$V1), 'V2']
+un.4.long <- aggregate(location.set.prob ~ UN + node, data = df.4.long, FUN=sum)
+
+un.4.wide = as.data.frame(dcast(un.4.long, node ~ UN))
+un.4.wide[is.na(un.4.wide)] <- 0
+
+
+pies4 <- nodepie(un.4.wide, cols=2:(length(un.4.wide))) 
+tp4 <- inset(t4.g, pies4, height=0.03, width=0.03)
+tp4 
+
+ggsave("160919_lin4.pdf", plot=tp4, width=14, height=30)
+
+```

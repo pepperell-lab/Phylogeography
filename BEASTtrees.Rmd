@@ -14,6 +14,8 @@ require(ape)
 require("ggtree")
 require(phytools)
 require(phangorn)
+require(reshape2)
+require(splitstackshape)
 setwd("C:/Users/Mary/PepLab/data/Phylogeography/160222_discrete_lineageSpecific/final/")
 ```
 
@@ -25,8 +27,8 @@ beast <- read.beast("lin1_snps_MCC.tree")
 
 get.fields(beast)
 
-bt <- ggtree(beast, ladderize=FALSE) 
-
+bt <- ggtree(beast, ladderize=FALSE) + geom_tippoint(aes(color=group))
+bt
 
 
 beast_data <- fortify(beast)
@@ -35,8 +37,21 @@ head(beast_data)
 require(stringr)
 require(splitstackshape)
 
+#subset the tip data
+tips <- subset(beast_data, isTip == TRUE, c(label, location))
+
+#split the tips by country
+iso = split(tips$label, tips$location)
+
+beast2 <- groupOTU(beast, iso)
+b2 <- ggtree(beast2, ladderize=FALSE) + geom_tippoint(aes(color=group)) + theme(legend.position="bottom", legend.title=element_blank()) + scale_color_discrete(breaks=seq(1,23), labels=(c("AF","BF","CN","EG","ET","GH","IN","KH","LK","ML","MW","MY","NP","PH","PK","RS","SG","SO","TH","TW","TZ","UG","VN"))) + geom_text2(aes(label=location))
+
+
+
 df <- beast_data
+df <- df[df$isTip == FALSE,]
 df <- df[,-c(2:24, 27)]
+
 df2 <- df
 df2$location.set.prob = gsub("\\{|\\}", "", df$location.set.prob)
 df2$location.set = gsub("\\{|\\}", "", df$location.set)
@@ -47,41 +62,244 @@ df3 <- df2.wide[,-25]
 df3[is.na(df3)] <- 0
 
 pies <- nodepie(df3, cols=2:24, alpha=.6)
-inset(bt, pies)
+tp <- inset(b2, pies)
 
 ```
 
-```{r testData}
+## Lineage 1
 
-set.seed(2015-12-31)
-tr <- rtree(15)
-p <- ggtree(tr)
+```{r lin1}
+lin1 <- read.beast("lin1_snps_MCC.tree")
 
-a <- runif(14, 0, 0.33)
-b <- runif(14, 0, 0.33)
-c <- runif(14, 0, 0.33)
-d <- 1 - a - b - c
-dat <- data.frame(a=a, b=b, c=c, d=d)
-## input data should have a column of `node` that store the node number
-dat$node <- 15+1:14
+get.fields(lin1)
 
-## cols parameter indicate which columns store stats (a, b, c and d in this example)
-bars <- nodebar(dat, cols=1:4)
+t1 <- ggtree(lin1, ladderize=FALSE) + geom_tippoint()
+t1
 
-inset(p, bars)
-
-inset(p, bars, width=.03, height=.06)
-
-bars2 <- nodebar(dat, cols=1:4, position='dodge',
-                 color=c(a='blue', b='red', c='green', d='cyan'))
-p2 <- inset(p, bars2, x='branch', width=.03, vjust=-.3)
-print(p2)
-
-pies <- nodepie(dat, cols=1:4, alpha=.6)
-inset(p, pies)
+lin1_data <- fortify(lin1)
+head(lin1_data)
 
 
+#subset the tip data
+lin1_tips <- subset(lin1_data, isTip == TRUE, c(label, location))
 
+#split the tips by country
+lin1_iso = split(lin1_tips$label, lin1_tips$location)
+
+lin1.g <- groupOTU(lin1, lin1_iso)
+t1 <- ggtree(lin1.g, ladderize=FALSE) + 
+  geom_tippoint(aes(color=group, label=location)) #+ 
+  #geom_text2(aes(label=location, colour=group))
+
+#scale factor
+lin1.g@phylo$edge.length <- lin1.g@phylo$edge.length * 133535
+
+##split the tips by WHO region
+whoReg <- split(lin1_tips$label, sapply(strsplit(lin1_tips$label, "\\_",), "[[", 3))
+lin1.who <- groupOTU(lin1, whoReg)
+
+t1.g <- ggtree(lin1.g, ladderize=FALSE) + 
+  #geom_tippoint(size = 2) +
+  geom_text2(aes(label=location, subset = isTip), hjust=-.1) +
+  scale_color_manual(values=c("#FFF459","#00ACCF", "#A8A5D1", "#93C947", "#F79A20"),
+                     name = "WHO Region",
+                     labels=c("African Region", "Eastern Mediterranean Region", "European Region", "South-East Asia Region", "Western Pacific Region")) + 
+  theme_tree2() +
+  #scale_x_continuous(limits=c(-500, 2500)) +
+  theme(panel.background = element_rect(fill="transparent", colour = NA),
+        plot.background = element_rect(fill="transparent", colour = NA))
+t1.g
+
+df.1 <- lin1_data
+df.1 <- df.1[df.1$isTip == FALSE,]
+df.1 <- df.1[,-c(2:24)]
+df.1 <- df.1[df.1$posterior >= 0.5,] #remove nodes with posterior prob limit < 0.5 (weren't annotated)
+df.1 <- df.1[,-4]
+
+df.1$location.set.prob = gsub("\\{|\\}", "", df.1$location.set.prob)
+df.1$location.set = gsub("\\{|\\}", "", df.1$location.set)
+
+df.1.long = cSplit(df.1, splitCols = c("location.set", "location.set.prob"), sep = c(",", ","), direction = "long")
+df.1.wide = as.data.frame(dcast(df.1.long, node ~ location.set))
+#df3 <- df1.wide[,-15]
+df.1.wide[is.na(df.1.wide)] <- 0
+
+#reduce the number of colors for the pie charts to those with >= 1% total prob
+lab <- df.1.wide[,c('node','IN','MW','PH','VN','TH','ET','NP','EG')]
+lab$other <- 1-rowSums(lab[,2:9])
+
+pies <- nodepie(lab, cols=2:(length(lab)), color = c("#003399","#CCCC00", "#006600", "#FFFF33", "#009933", "#333333", "#FF9900", "#339900",  "#FF6600"))
+tp1 <- inset(t1.g, pies)
+tp1 
+
+#ggsave("160601_lin1pie.eps", plot=tp1, width=6, height=13)
+
+
+
+######
+
+beast_tree@phylo$edge.length <- lin1@phylo$edge.length * 191912.4
+midpoint(beast_tree@phylo)
+ggtree(beast_tree, mrsd="2015-01-01") + theme_tree2() 
 
 ```
+
+
+## Lineage 2
+
+```{r lin1}
+lin2 <- read.beast("lin2_snps_MCC.tree")
+
+get.fields(lin2)
+
+lin2_data <- fortify(lin2)
+head(lin2_data)
+
+
+#subset the tip data
+lin2_tips <- subset(lin2_data, isTip == TRUE, c(label, location))
+
+#split the tips by country
+lin2_iso = split(lin2_tips$label, lin2_tips$location)
+
+lin2.g <- groupOTU(lin2, lin2_iso)
+#t2 <- ggtree(lin2.g, ladderize=FALSE) + geom_tippoint(aes(label=location)) #geom_tippoint(aes(color=group)) #+ geom_text2(aes(label=location))
+
+#scale factor
+lin2.g@phylo$edge.length <- lin2.g@phylo$edge.length * 129142
+
+t2 <- ggtree(lin2.g, ladderize=FALSE) + 
+  geom_text2(aes(label=location, subset = isTip), hjust=-.1) +
+  theme_tree2() +
+  theme(panel.background = element_rect(fill = "transparent", colour = NA),
+    plot.background = element_rect(fill="transparent", colour = NA))
+t2
+
+df.2 <- lin2_data
+df.2 <- df.2[df.2$isTip == FALSE,]
+df.2 <- df.2[,-c(2:24, 27)]
+
+
+df.2$location.set.prob = gsub("\\{|\\}", "", df.2$location.set.prob)
+df.2$location.set = gsub("\\{|\\}", "", df.2$location.set)
+
+df.2.long = cSplit(df.2, splitCols = c("location.set", "location.set.prob"), sep = c(",", ","), direction = "long")
+df.2.wide = as.data.frame(dcast(df.2.long, node ~ location.set))
+#df3 <- df2.wide[,-25]
+df.2.wide$'NA' <- NULL
+#df.2.wide[is.na(df.2.wide)] <- 0
+
+#reduce the number of colors for the pie charts to those with >= 1% total prob
+#colSums(df.2.wide)[order(colSums(df.2.wide))]
+#lab2 <- df.2.wide[,c('node','VN','CN','RU','UZ','IR','SZ','TM','DE','NP','KZ','TH','KI','GE')]
+#lab2$other <- 1-rowSums(lab2[,2:14])
+
+test <- df.2.wide
+test[test<.05] = NA
+test$other = 1-rowSums(test[,2:38], na.rm=TRUE)
+test[is.na(test)] <- 0
+
+
+pies <- nodepie(test, cols=2:(length(test)))
+tp2 <- inset(t2, pies)
+tp2
+
+tp2.2 <- inset(t2.g, pies)
+ggsave("lin2_location_tree_text.pdf", plot=tp2, width=6, height=13)
+ggsave("lin2_location_tree.pdf", plot=tp2.2, width=12, height=25)
+
+```
+
+## Lineage 3
+
+```{r lin3}
+lin3 <- read.beast("lin3_snps_MCC.tree")
+
+get.fields(lin3)
+
+t3 <- ggtree(lin3, ladderize=FALSE) + geom_tippoint()
+t3
+
+lin3_data <- fortify(lin3)
+head(lin3_data)
+
+
+#subset the tip data
+lin3_tips <- subset(lin3_data, isTip == TRUE, c(label, location))
+
+#split the tips by country
+lin3_iso = split(lin3_tips$label, lin3_tips$location)
+
+lin3.g <- groupOTU(lin3, lin3_iso)
+t3 <- ggtree(lin3.g, ladderize=FALSE) + geom_tippoint(aes(color=group)) + geom_text2(aes(label=location))
+
+
+df.3 <- lin3_data
+df.3 <- df.3[df.3$isTip == FALSE,]
+df.3 <- df.3[,-c(2:24, 27)]
+
+df.3$location.set.prob = gsub("\\{|\\}", "", df.3$location.set.prob)
+df.3$location.set = gsub("\\{|\\}", "", df.3$location.set)
+
+df.3.long = cSplit(df.3, splitCols = c("location.set", "location.set.prob"), sep = c(",", ","), direction = "long")
+df.3.wide = as.data.frame(dcast(df.3.long, node ~ location.set))
+#df3 <- df3.wide[,-35]
+df.3.wide[is.na(df.3.wide)] <- 0
+
+pies <- nodepie(df.3.wide, cols=2:(length(df.3.wide)-1), alpha=.6)
+tp3 <- inset(t3, pies)
+
+
+ggsave("lin3_location_tree_text.pdf", plot=tp3, width=12, height=18)
+```
+
+
+## Lineage 4
+
+```{r lin4}
+lin4 <- read.beast("C:/Users/Mary/PepLab/data/Phylogeography/160222_discrete_lineageSpecific/final/lin4_snps_MCC.tree")
+
+get.fields(lin4)
+
+t4 <- ggtree(lin4, ladderize=FALSE) + geom_tippoint()
+t4
+
+lin4_data <- fortify(lin4)
+head(lin4_data)
+
+
+#subset the tip data
+lin4_tips <- subset(lin4_data, isTip == TRUE, c(label, location))
+
+#split the tips by country
+lin4_iso = split(lin4_tips$label, lin4_tips$location)
+
+lin4.g <- groupOTU(lin4, lin4_iso)
+t4 <- ggtree(lin4.g, ladderize=FALSE) + geom_tippoint(aes(color=group)) + geom_text2(aes(label=location))
+
+
+df.4 <- lin4_data
+df.4 <- df.4[df.4$isTip == FALSE,]
+df.4 <- df.4[,-c(2:24, 27)]
+
+df.4$location.set.prob = gsub("\\{|\\}", "", df.4$location.set.prob)
+df.4$location.set = gsub("\\{|\\}", "", df.4$location.set)
+
+df.4.long = cSplit(df.4, splitCols = c("location.set", "location.set.prob"), sep = c(",", ","), direction = "long")
+df.4.wide = as.data.frame(dcast(df.4.long, node ~ location.set))
+#df4 <- df4.wide[,-45]
+df.4.wide[is.na(df.4.wide)] <- 0
+
+pies <- nodepie(df.4.wide, cols=2:(length(df.4.wide)-1), alpha=.6)
+tp4 <- inset(t4, pies)
+
+
+ggsave("lin4_location_tree_text.pdf", plot=tp4, width=12, height=18)
+
+
+
+
+post <- ggtree(lin4.g, ladderize=FALSE, aes(color=posterior)) + scale_color_continuous(name='posterior', limits=c(0,1), oob=scales::squish, low="green", high="red") + geom_tippoint(aes(color=group)) + geom_text2(aes(label=location))
+```
+
 

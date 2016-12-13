@@ -1,0 +1,133 @@
+---
+title: "Lineage Frequencies from SITVITWEB database"
+author: "Mary O'Neill"
+date: "September 6, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(rworldmap)
+require(reshape2)
+require(RColorBrewer)
+```
+
+## Import the data
+
+```{r data}
+#location to meta file
+dat <- read.table("C:/Users/Mary/PepLab/data/Phylogeography/spoligotyping/161130_country_spoligo_lineage_v2_ambCorrected.txt", header=T, sep='\t', na.strings="NA")
+
+#assign the headers
+#names(dat) <- c('Country','Clade', 'Num', 'Per', 'lineage')
+
+dat2 <- dat[!is.na(dat$lineage),]
+#dat2$Num <- as.numeric(dat2$Num)
+
+#Convert data 
+co.m <- aggregate(Num ~ Country + lineage, dat2, sum)
+
+#convert data to one row per location
+co <- dcast(co.m, Country ~ lineage)
+names(co) <- c("Iso3", "Lin3","Lin2","Lin4","Lin1","Lin5","Lin6")
+
+co <- co[, c(1:5)]
+
+```
+
+
+## Calculate lineage frequencies
+
+```{r calcFreq}
+#convert NA's to 0's
+co[is.na(co)] <- 0
+
+#calculate total number of samples from each country
+co$tot14 = rowSums(co[,c("Lin1","Lin2","Lin3","Lin4")])
+
+
+#calculate lineage frequencies for each country
+co$per14_Lin1 <- (co$Lin1/co$tot14)*100
+co$per14_Lin2 <- (co$Lin2/co$tot14)*100
+co$per14_Lin3 <- (co$Lin3/co$tot14)*100
+co$per14_Lin4 <- (co$Lin4/co$tot14)*100
+
+
+#convert zeros to NA to allow exclusion of countries with only one data point
+#c.mod[c.mod == 0] <- NA
+
+#exclude countries with less than 10 data points
+c2 <- co[co$tot14 > 10,]
+
+#write to file for Alex
+write.table(c2, file="C:/Users/Mary/PepLab/data/Phylogeography/spoligotyping/161130_sitvitweb_linFreq.txt", append=FALSE, quote=FALSE, sep="\t", eol="\n", na="na", row.names=FALSE, col.names=TRUE, qmethod="double")
+
+#Show countries with less than 10 samples
+small <- co[co$tot14 < 10, 1:10]
+small[order(small$tot14),]
+```
+
+
+## Plot the data!
+
+```{r plotting, echo=FALSE, warning=FALSE}
+
+#join data to country map
+m2 <- joinCountryData2Map(c2,
+                          joinCode = "ISO3",
+                          nameJoinColumn = "Iso3")
+
+op <- par(fin=c(7,9),mfcol=c(2,2),mai=c(0.2,0.2,0.4,0.2),xaxs="i",yaxs="i")
+
+panels = c("per14_Lin1", "per14_Lin2", "per14_Lin3", "per14_Lin4")#, "perLin5", "perLin6", "perLin7")
+#brewerList <- c("Reds", "RdPu", "Blues", "Purples", "Reds")
+
+for(i in 1:4)
+{
+  colourPalette <- brewer.pal(7,"Reds")
+  
+  lineage <- panels[i]
+  mapParams <- mapCountryData( m2
+                               , nameColumnToPlot=lineage
+                               , addLegend=FALSE
+                               , catMethod=c(0,1,10,20,30,40,50,60,70,80,90,100)
+                               , colourPalette=c('white', colourPalette)
+                               , mapTitle=lineage
+                               , xlim=c(20,140)
+                               , ylim=c(-40, 80)
+                               #, mapRegion='africa'
+                               , missingCountryCol="#EEEEEE"
+                               , borderCol="darkgrey"
+                               , oceanCol=adjustcolor("#99CCFF")
+  )
+  do.call( addMapLegend
+           , c(mapParams, horizontal=FALSE, legendLabels="none", legendWidth=0.7))
+}
+
+
+par(op)
+
+```
+
+## Number of samples
+
+How many samples where included in the lineage frequency calculations - total (all lineages) per country.
+
+```{r samps, echo=FALSE, warning=FALSE}
+par(mai=c(0.2,0.2,0.4,0.2),xaxs="i",yaxs="i")
+colourPalette <- brewer.pal(9, "Greys")
+mapParams <- mapCountryData( m2
+                               , nameColumnToPlot="tot14"
+                               , addLegend=TRUE
+                               #, catMethod=c(0,1,2,4,8,16,32,64,128,256,512,1024,2048)
+                               , colourPalette=colourPalette
+                               #, mapTitle=total
+                               , xlim=c(20,140)
+                               , ylim=c(-50, 80)
+                               #, mapRegion='africa'
+                               , missingCountryCol="white"
+                               , borderCol="darkgrey"
+                               , oceanCol=adjustcolor("#99CCFF")
+  )
+
+```

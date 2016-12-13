@@ -134,6 +134,28 @@ for(i in 1:nrow(mapDat2)) {
           col=c("pink", "blue", "darkmagenta", "red", "darkred", "darkgreen", "yellow3"))
 }
 
+
+
+#### for presentation
+map("world", fill=FALSE, xlim=c(-100,179), ylim=c(-50, 90))
+map.axes()
+
+for(i in 1:nrow(mapDat2)) {
+  row <- mapDat2[i,]
+  add.pie(x = row$Longitude, y = row$Latitude, 
+          z=c(row$Lin1,row$Lin2,row$Lin3,row$Lin4,row$Lin5,row$Lin6,row$Lin7), 
+          labels = NA, radius=row$radius, 
+          col=c("pink", "blue", "darkmagenta", "red", "darkred", "darkgreen", "yellow3"))
+}
+
+legend("topleft", 
+       legend = c("Lineage 1", "Lineage 2", "Lineage 3", "Lineage 4", "Lineage 5", "Lineage 6", "Lineage 7"),
+       col=c("pink", "blue", "darkmagenta", "red", "darkred", "darkgreen", "yellow3"),
+       pch = 15, cex = 0.8, pt.cex = 1.5)
+
+#legend.pie("bottomrleft", labels=c("1","2","3","4","5","6","7"), radius = 8, bty = "n")
+legend.bubble("bottomleft", maxradius = 7, z=c(38,28,18,8,1,1))
+
 ```
 
 
@@ -203,5 +225,8 @@ c1 <- ggtree(mpt, ladderize=FALSE, layout="circular") +
   #geom_cladelabel(node=574, label="L2") +
   geom_hilight(node=574, fill="blue", alpha=.2)
 c1 
+
+
+ggtree(mpt, ladderize=FALSE) + theme_tree2()
 ```
 
